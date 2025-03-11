@@ -4,6 +4,8 @@ A Flask application for testing Terminal Connect API integration with support fo
 
 ## Setup
 
+### Option 1: Local Setup
+
 1. Create a virtual environment and activate it:
 
 ```bash
@@ -40,6 +42,25 @@ pip install -r requirements.txt
 python app.py
 ```
 
+### Option 2: Docker Setup
+
+1. Configure environment variables:
+
+   - Copy `.env.example` to `.env` and update the values as described above
+
+2. Build and run with Docker Compose:
+
+```bash
+# Build and start the containers
+docker-compose up --build
+
+# Run in detached mode (background)
+docker-compose up -d
+
+# Stop the containers
+docker-compose down
+```
+
 The application will be available at `http://localhost:5000`
 
 ## Features
@@ -73,3 +94,25 @@ The application uses the following environment variables:
 2. Keep your API key secure and never share it
 3. Use HTTPS for production postback URLs
 4. Generate a strong secret key for production use
+
+## Docker Commands
+
+```bash
+# Build the image
+docker-compose build
+
+# Start the containers
+docker-compose up
+
+# Run in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the containers
+docker-compose down
+
+# Remove all containers and volumes
+docker-compose down -v
+```
