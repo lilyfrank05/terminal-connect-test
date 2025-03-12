@@ -1,0 +1,50 @@
+/* Custom styles */
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+    border: none;
+    margin-bottom: 1rem;
+}
+
+.nav-link {
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    margin: 0 0.25rem;
+}
+
+.nav-link:hover {
+    background-color: rgba(255,255,255,.1);
+}
+
+.nav-link.active {
+    background-color: rgba(255,255,255,.2);
+}
+
+.alert {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+}
+
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.15);
+}
+
+.btn-primary {
+    padding: 0.5rem 1.5rem;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0,0,0,.125);
+    padding: 1rem;
+} 
