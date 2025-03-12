@@ -225,3 +225,41 @@ def linked_refund():
         return redirect(url_for('main.linked_refund'))
     
     return render_template('linked_refund.html')
+
+@bp.route('/reversal', methods=['GET', 'POST'])
+def reversal():
+    if request.method == 'POST':
+        if not validate_config():
+            return redirect(url_for('main.config'))
+            
+        merchant_reference = request.form.get('merchant_reference')
+        if not merchant_reference:
+            flash('Merchant reference is required', 'danger')
+            return redirect(url_for('main.reversal'))
+            
+        parent_intent_id = request.form.get('parent_intent_id')
+        if not parent_intent_id:
+            flash('Parent Intent ID is required', 'danger')
+            return redirect(url_for('main.reversal'))
+        
+        # First API call to create reversal intent
+        endpoint = f"/merchant/{current_app.config['MID']}/intent/reversal"
+        payload = {
+            "merchantReference": merchant_reference,
+            "postbackUrl": current_app.config['POSTBACK_URL'],
+            "parentIntentId": parent_intent_id
+        }
+        
+        response_data, error = make_api_request(endpoint, payload=payload)
+        
+        if error:
+            flash(f'Error creating reversal intent: {error}', 'danger')
+            return redirect(url_for('main.reversal'))
+        
+        # Second API call to process the intent
+        intent_id = response_data['intentId']
+        process_intent(intent_id)
+        
+        return redirect(url_for('main.reversal'))
+    
+    return render_template('reversal.html')

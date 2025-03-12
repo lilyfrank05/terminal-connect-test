@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Reversal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Process Reversal</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('main.reversal') }}">
+                    <div class="mb-4">
+                        <label for="parent_intent_id" class="form-label">Parent Intent ID</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-link"></i></span>
+                            <input type="text" class="form-control" id="parent_intent_id" name="parent_intent_id" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="merchant_reference" class="form-label">Merchant Reference</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            <input type="text" class="form-control" id="merchant_reference" name="merchant_reference" required>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            A unique reference for this transaction
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-arrow-counterclockwise me-2"></i>Process Reversal
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
