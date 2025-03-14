@@ -202,8 +202,34 @@ def linked_refund():
         if not parent_intent_id:
             flash('Parent Intent ID is required', 'danger')
             return redirect(url_for('main.linked_refund'))
+
+        via_pinpad = request.form.get('via_pinpad', 'yes') == 'yes'
         
-        # First API call to create linked refund intent
+        if not via_pinpad:
+            # First get the parent intent details
+            endpoint = f"/merchant/{current_app.config['MID']}/intent/{parent_intent_id}"
+            response_data, error = make_api_request(endpoint, method='GET')
+            
+            if error:
+                flash(f'Error fetching parent intent details: {error}', 'danger')
+                return redirect(url_for('main.linked_refund'))
+                
+            # Parse the externalData JSON string
+            try:
+                external_data = json.loads(response_data['transactionDetails']['externalData'])
+                transaction_details = {
+                    "gatewayReferenceNumber": external_data['gatewayReferenceNumber'],
+                    "originalAmount": external_data['originalAmount'],
+                    "originalApprovalCode": external_data['originalApprovalCode'],
+                    "originalTransactionType": external_data['originalTransactionType'],
+                    "mid": external_data['hostMerchantId'],
+                    "tid": external_data['hostTerminalId']
+                }
+            except (KeyError, json.JSONDecodeError) as e:
+                flash(f'Error parsing transaction details: {str(e)}', 'danger')
+                return redirect(url_for('main.linked_refund'))
+        
+        # Create refund intent
         endpoint = f"/merchant/{current_app.config['MID']}/intent/refund"
         payload = {
             "amount": int(amount * 100),
@@ -211,6 +237,10 @@ def linked_refund():
             "postbackUrl": current_app.config['POSTBACK_URL'],
             "parentIntentId": parent_intent_id
         }
+
+        if not via_pinpad:
+            payload["isNonPinpadRefund"] = True
+            payload["transactionDetails"] = transaction_details
         
         response_data, error = make_api_request(endpoint, payload=payload)
         
@@ -218,9 +248,15 @@ def linked_refund():
             flash(f'Error creating linked refund intent: {error}', 'danger')
             return redirect(url_for('main.linked_refund'))
         
-        # Second API call to process the intent
+        # Get the intent ID from the response
         intent_id = response_data['intentId']
-        process_intent(intent_id)
+
+        if via_pinpad:
+            # Process via pinpad (existing flow)
+            process_intent(intent_id)
+        else:
+            # When not using pinpad, we don't need to make the second API call
+            flash(f'Refund intent {intent_id} created successfully!', 'success')
         
         return redirect(url_for('main.linked_refund'))
     
