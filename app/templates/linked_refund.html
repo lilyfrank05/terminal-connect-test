@@ -15,7 +15,15 @@
                         <label for="amount" class="form-label">Amount</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
-                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0.01" required>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="amount" 
+                                   name="amount" 
+                                   step="0.01" 
+                                   min="0.01" 
+                                   pattern="^\d*\.?\d{0,2}$"
+                                   placeholder="0.00"
+                                   required>
                         </div>
                     </div>
                     <div class="mb-4">
@@ -32,12 +40,18 @@
                     <div class="mb-4">
                         <label for="parent_intent_id" class="form-label">Parent Intent ID</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
-                            <input type="text" class="form-control" id="parent_intent_id" name="parent_intent_id" required>
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="parent_intent_id" 
+                                   name="parent_intent_id" 
+                                   pattern="^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                   placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+                                   required>
                         </div>
                         <div class="form-text">
                             <i class="bi bi-info-circle me-1"></i>
-                            The Intent ID of the original sale transaction
+                            The Intent ID of the original sale transaction (must be a valid UUID v4)
                         </div>
                     </div>
                     <div class="mb-4">

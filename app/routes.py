@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, current_app, jsonify, flash, redirect, url_for, session
 import requests
 import json
+import re
+from decimal import Decimal, InvalidOperation
 
 bp = Blueprint('main', __name__)
 
@@ -8,6 +10,33 @@ ENVIRONMENT_URLS = {
     'production': 'https://api-terminal-gateway.tillpayments.com/devices',
     'sandbox': 'https://api-terminal-gateway.tillvision.show/devices'
 }
+
+def is_valid_uuid(uuid_string):
+    """Validate that a string is a valid UUID v4"""
+    uuid_pattern = re.compile(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+        re.IGNORECASE
+    )
+    return bool(uuid_pattern.match(uuid_string))
+
+def validate_amount(amount_str):
+    """Validate amount has at most 2 decimal places and is positive"""
+    try:
+        # Convert to Decimal for precise decimal place checking
+        amount = Decimal(amount_str)
+        
+        # Check if positive
+        if amount <= 0:
+            return False, "Amount must be greater than 0"
+            
+        # Check decimal places
+        decimal_places = abs(amount.as_tuple().exponent)
+        if decimal_places > 2:
+            return False, "Amount cannot have more than 2 decimal places"
+            
+        return True, None
+    except InvalidOperation:
+        return False, "Invalid amount value"
 
 def validate_config():
     """Validate that all required configuration values are set"""
@@ -127,15 +156,14 @@ def sale():
         if not validate_config():
             return redirect(url_for('main.config'))
             
-        try:
-            amount = float(request.form.get('amount', 0))
-            if amount <= 0:
-                flash('Amount must be greater than 0', 'danger')
-                return redirect(url_for('main.sale'))
-        except ValueError:
-            flash('Invalid amount value', 'danger')
+        # Validate amount
+        amount_str = request.form.get('amount', '0')
+        is_valid, error_message = validate_amount(amount_str)
+        if not is_valid:
+            flash(error_message, 'danger')
             return redirect(url_for('main.sale'))
             
+        amount = float(amount_str)
         merchant_reference = request.form.get('merchant_reference')
         if not merchant_reference:
             flash('Merchant reference is required', 'danger')
@@ -169,15 +197,14 @@ def unlinked_refund():
         if not validate_config():
             return redirect(url_for('main.config'))
             
-        try:
-            amount = float(request.form.get('amount', 0))
-            if amount <= 0:
-                flash('Amount must be greater than 0', 'danger')
-                return redirect(url_for('main.unlinked_refund'))
-        except ValueError:
-            flash('Invalid amount value', 'danger')
+        # Validate amount
+        amount_str = request.form.get('amount', '0')
+        is_valid, error_message = validate_amount(amount_str)
+        if not is_valid:
+            flash(error_message, 'danger')
             return redirect(url_for('main.unlinked_refund'))
             
+        amount = float(amount_str)
         merchant_reference = request.form.get('merchant_reference')
         if not merchant_reference:
             flash('Merchant reference is required', 'danger')
@@ -211,15 +238,14 @@ def linked_refund():
         if not validate_config():
             return redirect(url_for('main.config'))
             
-        try:
-            amount = float(request.form.get('amount', 0))
-            if amount <= 0:
-                flash('Amount must be greater than 0', 'danger')
-                return redirect(url_for('main.linked_refund'))
-        except ValueError:
-            flash('Invalid amount value', 'danger')
+        # Validate amount
+        amount_str = request.form.get('amount', '0')
+        is_valid, error_message = validate_amount(amount_str)
+        if not is_valid:
+            flash(error_message, 'danger')
             return redirect(url_for('main.linked_refund'))
             
+        amount = float(amount_str)
         merchant_reference = request.form.get('merchant_reference')
         if not merchant_reference:
             flash('Merchant reference is required', 'danger')
@@ -228,6 +254,11 @@ def linked_refund():
         parent_intent_id = request.form.get('parent_intent_id')
         if not parent_intent_id:
             flash('Parent Intent ID is required', 'danger')
+            return redirect(url_for('main.linked_refund'))
+            
+        # Validate parent intent ID format
+        if not is_valid_uuid(parent_intent_id):
+            flash('Parent Intent ID must be a valid UUID v4', 'danger')
             return redirect(url_for('main.linked_refund'))
 
         via_pinpad = request.form.get('via_pinpad', 'yes') == 'yes'
@@ -303,6 +334,11 @@ def reversal():
         parent_intent_id = request.form.get('parent_intent_id')
         if not parent_intent_id:
             flash('Parent Intent ID is required', 'danger')
+            return redirect(url_for('main.reversal'))
+            
+        # Validate parent intent ID format
+        if not is_valid_uuid(parent_intent_id):
+            flash('Parent Intent ID must be a valid UUID v4', 'danger')
             return redirect(url_for('main.reversal'))
         
         # First API call to create reversal intent
