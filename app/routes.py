@@ -53,10 +53,13 @@ def make_api_request(endpoint, method='POST', payload=None):
             method=method,
             url=url,
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=60  # 60 seconds timeout
         )
         response.raise_for_status()
         return response.json(), None
+    except requests.exceptions.Timeout:
+        return None, "Request timed out after 60 seconds"
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         if hasattr(e.response, 'json'):
