@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, current_app, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, current_app, jsonify, flash, redirect, url_for, session
 import requests
 import json
 
@@ -12,7 +12,19 @@ ENVIRONMENT_URLS = {
 def validate_config():
     """Validate that all required configuration values are set"""
     required_configs = ['MID', 'TID', 'API_KEY', 'POSTBACK_URL', 'BASE_URL']
-    missing = [config for config in required_configs if not current_app.config.get(config)]
+    
+    # Check session first, then fall back to defaults
+    defaults = current_app.config['DEFAULT_CONFIG']
+    missing = []
+    
+    for config in required_configs:
+        value = session.get(config)
+        if not value:  # If not in session, try to get from defaults
+            value = defaults.get(config, '')
+            if value:  # If found in defaults, store in session
+                session[config] = value
+            else:
+                missing.append(config)
     
     if missing:
         flash(f'Missing configuration: {", ".join(missing)}. Please configure these values first.', 'danger')
@@ -23,13 +35,18 @@ def make_api_request(endpoint, method='POST', payload=None):
     """Helper function to make API requests with proper headers and error handling"""
     if not validate_config():
         return None, "Missing configuration values"
+    
+    # Get values from session, with defaults as fallback
+    defaults = current_app.config['DEFAULT_CONFIG']
+    api_key = session.get('API_KEY', defaults['API_KEY'])
+    base_url = session.get('BASE_URL', defaults['BASE_URL'])
         
     headers = {
         'Content-Type': 'application/json',
-        'x-api-key': current_app.config["API_KEY"]
+        'x-api-key': api_key
     }
     
-    url = f"{current_app.config['BASE_URL']}{endpoint}"
+    url = f"{base_url}{endpoint}"
     
     try:
         response = requests.request(
@@ -54,10 +71,15 @@ def process_intent(intent_id):
     """Helper function for the second API call to process the intent"""
     if not validate_config():
         return None, "Missing configuration values"
+    
+    # Get values from session, with defaults as fallback
+    defaults = current_app.config['DEFAULT_CONFIG']
+    mid = session.get('MID', defaults['MID'])
+    tid = session.get('TID', defaults['TID'])
         
-    endpoint = f"/merchant/{current_app.config['MID']}/intent/{intent_id}/process"
+    endpoint = f"/merchant/{mid}/intent/{intent_id}/process"
     payload = {
-        "tid": current_app.config['TID']
+        "tid": tid
     }
     
     response_data, error = make_api_request(endpoint, payload=payload)
@@ -76,23 +98,25 @@ def index():
 @bp.route('/config', methods=['GET', 'POST'])
 def config():
     if request.method == 'POST':
-        # Update configuration
+        # Update configuration in session
         environment = request.form.get('environment', 'sandbox')
-        current_app.config['ENVIRONMENT'] = environment
-        current_app.config['BASE_URL'] = ENVIRONMENT_URLS[environment]
-        current_app.config['MID'] = request.form.get('mid', '')
-        current_app.config['TID'] = request.form.get('tid', '')
-        current_app.config['API_KEY'] = request.form.get('api_key', '')
-        current_app.config['POSTBACK_URL'] = request.form.get('postback_url', '')
+        session['ENVIRONMENT'] = environment
+        session['BASE_URL'] = ENVIRONMENT_URLS[environment]
+        session['MID'] = request.form.get('mid', '')
+        session['TID'] = request.form.get('tid', '')
+        session['API_KEY'] = request.form.get('api_key', '')
+        session['POSTBACK_URL'] = request.form.get('postback_url', '')
         flash('Configuration updated successfully', 'success')
         return redirect(url_for('main.config'))
     
+    # Get configuration from session with defaults from environment
+    defaults = current_app.config['DEFAULT_CONFIG']
     return render_template('config.html',
-                         environment=current_app.config.get('ENVIRONMENT', 'sandbox'),
-                         mid=current_app.config.get('MID', ''),
-                         tid=current_app.config.get('TID', ''),
-                         api_key=current_app.config.get('API_KEY', ''),
-                         postback_url=current_app.config.get('POSTBACK_URL', ''))
+                         environment=session.get('ENVIRONMENT', defaults['ENVIRONMENT']),
+                         mid=session.get('MID', defaults['MID']),
+                         tid=session.get('TID', defaults['TID']),
+                         api_key=session.get('API_KEY', defaults['API_KEY']),
+                         postback_url=session.get('POSTBACK_URL', defaults['POSTBACK_URL']))
 
 @bp.route('/sale', methods=['GET', 'POST'])
 def sale():
@@ -115,11 +139,11 @@ def sale():
             return redirect(url_for('main.sale'))
         
         # First API call to create payment intent
-        endpoint = f"/merchant/{current_app.config['MID']}/intent/payment"
+        endpoint = f"/merchant/{session['MID']}/intent/payment"
         payload = {
             "subTotal": int(amount * 100),
             "merchantReference": merchant_reference,
-            "postbackUrl": current_app.config['POSTBACK_URL']
+            "postbackUrl": session['POSTBACK_URL']
         }
         
         response_data, error = make_api_request(endpoint, payload=payload)
@@ -157,11 +181,11 @@ def unlinked_refund():
             return redirect(url_for('main.unlinked_refund'))
         
         # First API call to create refund intent
-        endpoint = f"/merchant/{current_app.config['MID']}/intent/refund"
+        endpoint = f"/merchant/{session['MID']}/intent/refund"
         payload = {
             "amount": int(amount * 100),
             "merchantReference": merchant_reference,
-            "postbackUrl": current_app.config['POSTBACK_URL']
+            "postbackUrl": session['POSTBACK_URL']
         }
         
         response_data, error = make_api_request(endpoint, payload=payload)
@@ -207,7 +231,7 @@ def linked_refund():
         
         if not via_pinpad:
             # First get the parent intent details
-            endpoint = f"/merchant/{current_app.config['MID']}/intent/{parent_intent_id}"
+            endpoint = f"/merchant/{session['MID']}/intent/{parent_intent_id}"
             response_data, error = make_api_request(endpoint, method='GET')
             
             if error:
@@ -230,11 +254,11 @@ def linked_refund():
                 return redirect(url_for('main.linked_refund'))
         
         # Create refund intent
-        endpoint = f"/merchant/{current_app.config['MID']}/intent/refund"
+        endpoint = f"/merchant/{session['MID']}/intent/refund"
         payload = {
             "amount": int(amount * 100),
             "merchantReference": merchant_reference,
-            "postbackUrl": current_app.config['POSTBACK_URL'],
+            "postbackUrl": session['POSTBACK_URL'],
             "parentIntentId": parent_intent_id
         }
 
@@ -279,10 +303,10 @@ def reversal():
             return redirect(url_for('main.reversal'))
         
         # First API call to create reversal intent
-        endpoint = f"/merchant/{current_app.config['MID']}/intent/reversal"
+        endpoint = f"/merchant/{session['MID']}/intent/reversal"
         payload = {
             "merchantReference": merchant_reference,
-            "postbackUrl": current_app.config['POSTBACK_URL'],
+            "postbackUrl": session['POSTBACK_URL'],
             "parentIntentId": parent_intent_id
         }
         
