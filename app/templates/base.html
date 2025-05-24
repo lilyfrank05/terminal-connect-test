@@ -52,7 +52,7 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('config.index') }}">
                 <i class="bi bi-credit-card me-2"></i>
                 Terminal Connect Test
             </a>
@@ -62,29 +62,29 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.sale' %}active{% endif %}" href="{{ url_for('main.sale') }}">
+                        <a class="nav-link {% if request.endpoint == 'sales.sale' %}active{% endif %}" href="{{ url_for('sales.sale') }}">
                             <i class="bi bi-cart me-1"></i> Sale
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.unlinked_refund' %}active{% endif %}" href="{{ url_for('main.unlinked_refund') }}">
+                        <a class="nav-link {% if request.endpoint == 'refunds.unlinked_refund' %}active{% endif %}" href="{{ url_for('refunds.unlinked_refund') }}">
                             <i class="bi bi-arrow-return-left me-1"></i> Unlinked Refund
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.linked_refund' %}active{% endif %}" href="{{ url_for('main.linked_refund') }}">
+                        <a class="nav-link {% if request.endpoint == 'refunds.linked_refund' %}active{% endif %}" href="{{ url_for('refunds.linked_refund') }}">
                             <i class="bi bi-link me-1"></i> Linked Refund
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.reversal' %}active{% endif %}" href="{{ url_for('main.reversal') }}">
+                        <a class="nav-link {% if request.endpoint == 'reversals.reversal' %}active{% endif %}" href="{{ url_for('reversals.reversal') }}">
                             <i class="bi bi-arrow-counterclockwise me-1"></i> Reversal
                         </a>
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.config' %}active{% endif %}" href="{{ url_for('main.config') }}">
+                        <a class="nav-link {% if request.endpoint == 'config.config' %}active{% endif %}" href="{{ url_for('config.config') }}">
                             <i class="bi bi-gear me-1"></i> Configuration
                         </a>
                     </li>

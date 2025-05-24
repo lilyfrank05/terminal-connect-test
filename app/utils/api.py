@@ -1,0 +1,69 @@
+import requests
+from flask import current_app, flash, session
+
+from .validation import validate_config
+
+ENVIRONMENT_URLS = {
+    "production": "https://api-terminal-gateway.tillpayments.com/devices",
+    "sandbox": "https://api-terminal-gateway.tillvision.show/devices",
+}
+
+
+def make_api_request(endpoint, method="POST", payload=None):
+    """Helper function to make API requests with proper headers and error handling"""
+    if not validate_config():
+        return None, "Missing configuration values"
+
+    # Get values from session, with defaults as fallback
+    defaults = current_app.config["DEFAULT_CONFIG"]
+    api_key = session.get("API_KEY", defaults["API_KEY"])
+    base_url = session.get("BASE_URL", defaults["BASE_URL"])
+
+    headers = {"Content-Type": "application/json", "x-api-key": api_key}
+
+    url = f"{base_url}{endpoint}"
+
+    try:
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            json=payload,
+            timeout=60,  # 60 seconds timeout
+        )
+        response.raise_for_status()
+        return response.json(), None
+    except requests.exceptions.Timeout:
+        return None, "Request timed out after 60 seconds"
+    except requests.exceptions.RequestException as e:
+        error_message = str(e)
+        if hasattr(e.response, "json"):
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get("message", str(e))
+            except:
+                pass
+        return None, error_message
+
+
+def process_intent(intent_id):
+    """Helper function for the second API call to process the intent"""
+    if not validate_config():
+        return None, "Missing configuration values"
+
+    # Get values from session, with defaults as fallback
+    defaults = current_app.config["DEFAULT_CONFIG"]
+    mid = session.get("MID", defaults["MID"])
+    tid = session.get("TID", defaults["TID"])
+
+    endpoint = f"/merchant/{mid}/intent/{intent_id}/process"
+    payload = {"tid": tid}
+
+    response_data, error = make_api_request(endpoint, payload=payload)
+
+    if error:
+        flash(f"Process failed for Intent ID {intent_id}: {error}", "danger")
+    else:
+        flash(f"Successfully processed Intent ID: {intent_id}", "success")
+
+    return response_data, error
