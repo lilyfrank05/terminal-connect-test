@@ -17,18 +17,23 @@ DEFAULT_CONFIG = {
 }
 
 
-def create_app():
-    app = Flask(__name__)
+def create_app(test_config=None):
+    app = Flask(__name__, instance_relative_config=True)
+    app.config.from_mapping(
+        SECRET_KEY="dev",
+        DEFAULT_CONFIG=DEFAULT_CONFIG,
+    )
 
-    # Set secret key for session management
-    app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
+    if test_config is None:
+        # load the instance config, if it exists, when not testing
+        app.config.from_pyfile("config.py", silent=True)
+    else:
+        # load the test config if passed in
+        app.config.from_mapping(test_config)
 
-    # Store default config in app for access in routes
-    app.config["DEFAULT_CONFIG"] = DEFAULT_CONFIG
+    # Register blueprints
+    from .routes import init_app as init_routes
 
-    # Import routes
-    from app import routes
-
-    app.register_blueprint(routes.bp)
+    init_routes(app)
 
     return app

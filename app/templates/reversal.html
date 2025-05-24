@@ -4,44 +4,30 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+    <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">Process Reversal</h5>
+                <h4 class="mb-0"><i class="bi bi-x-circle me-2"></i>Reversal</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('main.reversal') }}">
+                <form method="POST" action="{{ url_for('reversals.reversal') }}">
                     <div class="mb-4">
-                        <label for="parent_intent_id" class="form-label">Parent Intent ID</label>
+                        <label for="amount" class="form-label">Amount</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-key"></i></span>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="parent_intent_id" 
-                                   name="parent_intent_id" 
-                                   pattern="^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                                   placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
-                                   required>
-                        </div>
-                        <div class="form-text">
-                            <i class="bi bi-info-circle me-1"></i>
-                            The Intent ID of the original sale transaction (must be a valid UUID v4)
+                            <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0.01" required>
                         </div>
                     </div>
                     <div class="mb-4">
                         <label for="merchant_reference" class="form-label">Merchant Reference</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
-                            <input type="text" class="form-control" id="merchant_reference" name="merchant_reference" required>
-                        </div>
-                        <div class="form-text">
-                            <i class="bi bi-info-circle me-1"></i>
-                            A unique reference for this transaction
+                            <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                            <input type="text" class="form-control" id="merchant_reference" name="merchant_reference" value="{{ default_merchant_reference }}" required>
                         </div>
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-arrow-counterclockwise me-2"></i>Process Reversal
+                            <i class="bi bi-x-circle me-2"></i>Process Reversal
                         </button>
                     </div>
                 </form>
