@@ -1,5 +1,5 @@
 import requests
-from flask import current_app, flash, session
+from flask import current_app, flash, session, url_for
 
 from .validation import validate_config
 
@@ -18,10 +18,17 @@ def make_api_request(endpoint, method="POST", payload=None):
     defaults = current_app.config["DEFAULT_CONFIG"]
     api_key = session.get("API_KEY", defaults["API_KEY"])
     base_url = session.get("BASE_URL", defaults["BASE_URL"])
+    postback_url = session.get("POSTBACK_URL") or url_for(
+        "postbacks.postback", _external=True
+    )
 
     headers = {"Content-Type": "application/json", "x-api-key": api_key}
 
     url = f"{base_url}{endpoint}"
+
+    # Add postback URL to payload if it's a payment, refund, or reversal request
+    if payload and endpoint.endswith(("/payment", "/refund", "/reversal")):
+        payload["postbackUrl"] = postback_url
 
     try:
         response = requests.request(

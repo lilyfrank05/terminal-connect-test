@@ -52,6 +52,9 @@
                             <span class="input-group-text"><i class="bi bi-arrow-return-right"></i></span>
                             <input type="url" class="form-control" id="postback_url" name="postback_url" value="{{ postback_url }}" required>
                         </div>
+                        <div class="form-text">
+                            Default: <code>{{ url_for('postbacks.postback', _external=True) }}</code>
+                        </div>
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
