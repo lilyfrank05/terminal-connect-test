@@ -32,7 +32,6 @@ def unlinked_refund():
         payload = {
             "amount": int(amount * 100),
             "merchantReference": merchant_reference,
-            "postbackUrl": session["POSTBACK_URL"],
         }
 
         response_data, error = make_api_request(endpoint, payload=payload)
@@ -114,7 +113,6 @@ def linked_refund():
         payload = {
             "amount": int(amount * 100),
             "merchantReference": merchant_reference,
-            "postbackUrl": session["POSTBACK_URL"],
             "parentIntentId": parent_intent_id,
         }
 

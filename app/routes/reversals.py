@@ -32,7 +32,6 @@ def reversal():
         endpoint = f"/merchant/{session['MID']}/intent/reversal"
         payload = {
             "merchantReference": merchant_reference,
-            "postbackUrl": session["POSTBACK_URL"],
             "parentIntentId": parent_intent_id,
         }
 

@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Load environment variables at module level
 load_dotenv()
@@ -23,6 +24,10 @@ def create_app(test_config=None):
         SECRET_KEY="dev",
         DEFAULT_CONFIG=DEFAULT_CONFIG,
     )
+    app.config["PREFERRED_URL_SCHEME"] = "https"
+
+    # Use ProxyFix to respect X-Forwarded-Proto and X-Forwarded-Host
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
