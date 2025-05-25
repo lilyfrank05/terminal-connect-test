@@ -1,101 +1,92 @@
 # Terminal Connect Test Application
 
-A Flask application for testing Terminal Connect API integration with support for sales and refunds.
+A Flask application for testing Terminal Connect API integration with support for sales, refunds, reversals, and postback inspection.
+
+## Features
+
+- **Configuration Management**
+  - Environment selection (Sandbox/Production)
+  - MID, TID, and API key configuration
+  - Built-in postback handling at `/postback` endpoint
+- **Transaction Operations**
+  - Process sales
+  - Process unlinked refunds
+  - Process linked refunds (requires parent intent ID)
+  - Process reversals
+- **Postback Inspection**
+  - All postbacks sent to `/postback` are recorded in a file
+  - Postbacks are viewable at `/postbacks` in a table with expandable details
+  - Postbacks are cleared daily
+  - Sensitive headers (e.g., Authorization) are masked in the UI
 
 ## Setup
 
-### Option 1: Local Setup
+### Local Setup
 
 1. Create a virtual environment and activate it:
 
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
 2. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 3. Configure environment variables:
 
-   - Copy `.env.example` to `.env`:
+   - Copy `.env.example` to `.env` (if provided) or create a `.env` file:
      ```bash
      cp .env.example .env
-     ```
-   - Generate a secure secret key:
-     ```bash
-     python -c "import secrets; print(secrets.token_urlsafe(32))"
      ```
    - Update `.env` with your configuration:
      - `SECRET_KEY`: The generated secret key
      - `MID`: Your Merchant ID
      - `TID`: Your Terminal ID
      - `API_KEY`: Your Terminal Connect API key
-     - `POSTBACK_URL`: Your webhook endpoint for transaction notifications
 
 4. Run the application:
 
-```bash
-python app.py
-```
+   ```bash
+   python app.py
+   ```
 
-### Option 2: Docker Setup
+### Docker Setup
 
-1. Configure environment variables:
+1. Build and run with Docker Compose:
 
-   - Copy `.env.example` to `.env` and update the values as described above
+   ```bash
+   docker-compose build
+   docker-compose up
+   ```
 
-2. Build and run with Docker Compose:
+   The application will be available at `http://localhost:5001`
 
-```bash
-# Build and start the containers
-docker-compose up --build
+2. The Docker image uses `python:3.12-slim` and installs `ca-certificates` for proper SSL support. Python requests are configured to use the system CA bundle for HTTPS.
 
-# Run in detached mode (background)
-docker-compose up -d
+### Postback Handling
 
-# Stop the containers
-docker-compose down
-```
+- The application provides a built-in postback endpoint at `/postback` (e.g., `http://localhost:5001/postback`).
+- All postbacks received at this endpoint are stored in a local file (cleared daily).
+- View all received postbacks at `/postbacks`.
+- The postbacks table allows you to expand/collapse details for each postback, with proper line wrapping and masked sensitive headers.
 
-The application will be available at `http://localhost:5000`
-
-## Features
-
-- **Configuration Management**
-
-  - Environment selection (Sandbox/Production)
-  - MID, TID, and API key configuration
-  - Postback URL configuration
-
-- **Transaction Operations**
-  - Process sales
-  - Process unlinked refunds
-  - Process linked refunds (requires parent intent ID)
-
-## Environment Configuration
-
-The application uses the following environment variables:
-
-| Variable     | Description                               | Example                                  |
-| ------------ | ----------------------------------------- | ---------------------------------------- |
-| SECRET_KEY   | Flask secret key for session management   | `k8AA0aVss_vm/Vaq848KO0v44VoMMzahSvvmtb` |
-| MID          | Merchant ID for Terminal Connect          | `12345`                                  |
-| TID          | Terminal ID for Terminal Connect          | `WP12345X67890123`                       |
-| API_KEY      | API Key for authentication                | `XXXXX-XXXXX-XXXXX-XXXXX`                |
-| POSTBACK_URL | Webhook URL for transaction notifications | `https://your-domain.com/webhook`        |
-
-## Security Notes
+### Security Notes
 
 1. Never commit your `.env` file to version control
 2. Keep your API key secure and never share it
-3. Use HTTPS for production postback URLs
+3. Use HTTPS for production deployments
 4. Generate a strong secret key for production use
 
-## Docker Commands
+### Troubleshooting SSL in Docker
+
+- The Docker image uses the system CA bundle (`/etc/ssl/certs/ca-certificates.crt`) for all outgoing HTTPS requests.
+- If you encounter SSL errors, ensure you have rebuilt your Docker image after any changes to the Dockerfile.
+
+### Docker Commands
 
 ```bash
 # Build the image
@@ -113,6 +104,4 @@ docker-compose logs -f
 # Stop the containers
 docker-compose down
 
-# Remove all containers and volumes
-docker-compose down -v
 ```
