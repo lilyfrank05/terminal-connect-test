@@ -13,25 +13,25 @@
             <div class="card-body">
                 {% if postbacks %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover" style="table-layout: fixed; width: 100%;">
                             <thead>
                                 <tr>
-                                    <th>Time</th>
-                                    <th>Status</th>
-                                    <th>Reference</th>
-                                    <th>Details</th>
+                                    <th style="width: 22%">Time</th>
+                                    <th style="width: 18%">Status</th>
+                                    <th style="width: 30%">Reference</th>
+                                    <th style="width: 10%">Details</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for postback in postbacks|reverse %}
                                 <tr>
-                                    <td>{{ postback.received_at }}</td>
+                                    <td class="text-break">{{ postback.received_at }}</td>
                                     <td>
                                         <span class="badge {% if postback.payload and postback.payload.status == 'success' %}bg-success{% elif postback.payload and postback.payload.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
                                             {{ postback.payload.status if postback.payload and postback.payload.status else 'N/A' }}
                                         </span>
                                     </td>
-                                    <td><code>{{ postback.payload.merchantReference if postback.payload and postback.payload.merchantReference else 'N/A' }}</code></td>
+                                    <td class="text-break"><code>{{ postback.payload.merchantReference if postback.payload and postback.payload.merchantReference else 'N/A' }}</code></td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary" type="button" 
                                                 data-bs-toggle="collapse" 
@@ -41,26 +41,13 @@
                                         </button>
                                     </td>
                                 </tr>
-                                <tr>
+                                <tr class="collapse" id="details-{{ loop.index }}">
                                     <td colspan="4" class="p-0">
-                                        <div class="collapse" id="details-{{ loop.index }}">
-                                            <div class="card card-body bg-light m-2">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <div>
-                                                        <strong>Time</strong><br>
-                                                        {{ postback.received_at }}
-                                                    </div>
-                                                    <button class="btn btn-sm btn-outline-secondary" type="button"
-                                                            data-bs-toggle="collapse"
-                                                            data-bs-target="#details-{{ loop.index }}">
-                                                        <i class="bi bi-eye-slash"></i> Hide
-                                                    </button>
-                                                </div>
-                                                <strong>Payload:</strong>
-                                                <pre class="mb-2" style="white-space: pre-wrap; word-break: break-all;"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
-                                                <strong>Headers:</strong>
-                                                <pre class="mb-0"><code>{{ postback.headers|tojson(indent=2) }}</code></pre>
-                                            </div>
+                                        <div class="card card-body bg-light m-2">
+                                            <strong>Payload:</strong>
+                                            <pre class="mb-2" style="white-space: pre-wrap; word-break: break-all; overflow-x: auto;"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
+                                            <strong>Headers:</strong>
+                                            <pre class="mb-0" style="white-space: pre-wrap; word-break: break-all; overflow-x: auto;"><code>{{ postback.headers|tojson(indent=2) }}</code></pre>
                                         </div>
                                     </td>
                                 </tr>
