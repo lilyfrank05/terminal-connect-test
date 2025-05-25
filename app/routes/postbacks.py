@@ -1,7 +1,40 @@
-from flask import Blueprint, request, session, jsonify, render_template
+import json
 import datetime
+import os
+from flask import Blueprint, request, jsonify, render_template
 
 bp = Blueprint("postbacks", __name__)
+
+POSTBACKS_FILE = "/tmp/postbacks.json"
+
+
+# Helper to clear the file if it's a new day
+def clear_postbacks_if_new_day():
+    today = datetime.date.today().isoformat()
+    meta_file = POSTBACKS_FILE + ".meta"
+    last_day = None
+    if os.path.exists(meta_file):
+        with open(meta_file, "r") as f:
+            last_day = f.read().strip()
+    if last_day != today:
+        with open(POSTBACKS_FILE, "w") as f:
+            json.dump([], f)
+        with open(meta_file, "w") as f:
+            f.write(today)
+
+
+def load_postbacks():
+    clear_postbacks_if_new_day()
+    try:
+        with open(POSTBACKS_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def save_postbacks(postbacks):
+    with open(POSTBACKS_FILE, "w") as f:
+        json.dump(postbacks, f)
 
 
 @bp.route("/postback", methods=["POST"])
@@ -15,15 +48,11 @@ def postback():
         "received_at": datetime.datetime.utcnow().isoformat() + "Z",
         "headers": dict(request.headers),
     }
-    # Initialize postbacks list in session if it doesn't exist
-    if "postbacks" not in session:
-        session["postbacks"] = []
-    # Add to session (keep last 50 postbacks)
-    postbacks = session["postbacks"]
+    postbacks = load_postbacks()
     postbacks.append(record)
     if len(postbacks) > 50:
-        postbacks.pop(0)
-    session["postbacks"] = postbacks
+        postbacks = postbacks[-50:]
+    save_postbacks(postbacks)
     # Return 200 OK
     return jsonify({"status": "success"}), 200
 
@@ -31,5 +60,5 @@ def postback():
 @bp.route("/postbacks", methods=["GET"])
 def list_postbacks():
     """Display the list of received postbacks"""
-    postbacks = session.get("postbacks", [])
+    postbacks = load_postbacks()
     return render_template("postbacks.html", postbacks=postbacks)
