@@ -84,6 +84,11 @@
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'postbacks.list_postbacks' %}active{% endif %}" href="{{ url_for('postbacks.list_postbacks') }}">
+                            <i class="bi bi-bell me-1"></i> Postbacks
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'config.config' %}active{% endif %}" href="{{ url_for('config.config') }}">
                             <i class="bi bi-gear me-1"></i> Configuration
                         </a>

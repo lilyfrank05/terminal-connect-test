@@ -31,7 +31,6 @@ def sale():
         payload = {
             "subTotal": int(amount * 100),
             "merchantReference": merchant_reference,
-            "postbackUrl": session["POSTBACK_URL"],
         }
 
         response_data, error = make_api_request(endpoint, payload=payload)

@@ -3,38 +3,31 @@ from decimal import Decimal, InvalidOperation
 from flask import current_app, flash, session
 
 
-def is_valid_uuid(uuid_string):
-    """Validate that a string is a valid UUID v4"""
-    uuid_pattern = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-        re.IGNORECASE,
-    )
-    return bool(uuid_pattern.match(uuid_string))
+def is_valid_uuid(uuid_str):
+    """Validate that the string is a valid UUID v4"""
+    pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    return bool(re.match(pattern, uuid_str.lower()))
 
 
 def validate_amount(amount_str):
-    """Validate amount has at most 2 decimal places and is positive"""
+    """Validate that the amount is a positive number with max 2 decimal places"""
     try:
-        # Convert to Decimal for precise decimal place checking
-        amount = Decimal(amount_str)
-
-        # Check if positive
+        amount = float(amount_str)
         if amount <= 0:
-            return False, "Amount must be greater than 0"
-
-        # Check decimal places
-        decimal_places = abs(amount.as_tuple().exponent)
-        if decimal_places > 2:
-            return False, "Amount cannot have more than 2 decimal places"
-
+            return False, "Amount must be greater than zero"
+        if amount > 999999.99:
+            return False, "Amount must be less than 1,000,000"
+        # Check if amount has more than 2 decimal places
+        if len(amount_str.split(".")[-1]) > 2:
+            return False, "Amount must have at most 2 decimal places"
         return True, None
-    except InvalidOperation:
-        return False, "Invalid amount value"
+    except ValueError:
+        return False, "Invalid amount format"
 
 
 def validate_config():
     """Validate that all required configuration values are set"""
-    required_configs = ["MID", "TID", "API_KEY", "POSTBACK_URL", "BASE_URL"]
+    required_configs = ["MID", "TID", "API_KEY", "BASE_URL"]
 
     # Check session first, then fall back to defaults
     defaults = current_app.config["DEFAULT_CONFIG"]

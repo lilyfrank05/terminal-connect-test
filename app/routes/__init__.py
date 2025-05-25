@@ -4,6 +4,7 @@ from .config import bp as config_bp
 from .sales import bp as sales_bp
 from .refunds import bp as refunds_bp
 from .reversals import bp as reversals_bp
+from .postbacks import bp as postbacks_bp
 
 
 def init_app(app):
@@ -11,3 +12,4 @@ def init_app(app):
     app.register_blueprint(sales_bp)
     app.register_blueprint(refunds_bp)
     app.register_blueprint(reversals_bp)
+    app.register_blueprint(postbacks_bp)
