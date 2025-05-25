@@ -1,6 +1,6 @@
 import requests
 from flask import current_app, flash, session, url_for
-import certifi
+import os
 
 from .validation import validate_config
 
@@ -8,6 +8,9 @@ ENVIRONMENT_URLS = {
     "production": "https://api-terminal-gateway.tillpayments.com/devices",
     "sandbox": "https://api-terminal-gateway.tillvision.show/devices",
 }
+
+# Use system CA bundle for Docker compatibility
+VERIFY_PATH = "/etc/ssl/certs/ca-certificates.crt"
 
 
 def make_api_request(endpoint, method="POST", payload=None):
@@ -38,7 +41,7 @@ def make_api_request(endpoint, method="POST", payload=None):
             headers=headers,
             json=payload,
             timeout=60,  # 60 seconds timeout
-            verify=certifi.where(),
+            verify=VERIFY_PATH,
         )
         response.raise_for_status()
         return response.json(), None
