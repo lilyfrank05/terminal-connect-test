@@ -37,6 +37,15 @@ def save_postbacks(postbacks):
         json.dump(postbacks, f)
 
 
+def mask_headers(headers):
+    masked = dict(headers)
+    if "Authorization" in masked:
+        masked["Authorization"] = "***MASKED***"
+    if "authorization" in masked:
+        masked["authorization"] = "***MASKED***"
+    return masked
+
+
 @bp.route("/postback", methods=["POST"])
 def postback():
     """Handle incoming postback messages from Terminal Connect"""
@@ -46,7 +55,7 @@ def postback():
     record = {
         "payload": postback_data,
         "received_at": datetime.datetime.utcnow().isoformat() + "Z",
-        "headers": dict(request.headers),
+        "headers": mask_headers(dict(request.headers)),
     }
     postbacks = load_postbacks()
     postbacks.append(record)
