@@ -14,7 +14,6 @@ DEFAULT_CONFIG = {
     "MID": os.getenv("MID", ""),
     "TID": os.getenv("TID", ""),
     "API_KEY": os.getenv("API_KEY", ""),
-    "POSTBACK_URL": os.getenv("POSTBACK_URL", ""),
 }
 
 
