@@ -6,8 +6,6 @@ services:
     volumes:
       - .:/app
     environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=development # Change to production in prod environment
       - SECRET_KEY=${SECRET_KEY}
       - MID=${MID}
       - TID=${TID}
