@@ -46,13 +46,17 @@
                                         <div class="collapse" id="details-{{ loop.index }}">
                                             <div class="card card-body bg-light m-2">
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <strong>Payload:</strong>
+                                                    <div>
+                                                        <strong>Time</strong><br>
+                                                        {{ postback.received_at }}
+                                                    </div>
                                                     <button class="btn btn-sm btn-outline-secondary" type="button"
                                                             data-bs-toggle="collapse"
                                                             data-bs-target="#details-{{ loop.index }}">
                                                         <i class="bi bi-eye-slash"></i> Hide
                                                     </button>
                                                 </div>
+                                                <strong>Payload:</strong>
                                                 <pre class="mb-2" style="white-space: pre-wrap; word-break: break-all;"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
                                                 <strong>Headers:</strong>
                                                 <pre class="mb-0"><code>{{ postback.headers|tojson(indent=2) }}</code></pre>
