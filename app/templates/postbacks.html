@@ -17,7 +17,6 @@
                             <thead>
                                 <tr>
                                     <th>Time</th>
-                                    <th>Type</th>
                                     <th>Status</th>
                                     <th>Reference</th>
                                     <th>Details</th>
@@ -27,11 +26,6 @@
                                 {% for postback in postbacks|reverse %}
                                 <tr>
                                     <td>{{ postback.received_at }}</td>
-                                    <td>
-                                        <span class="badge bg-info">
-                                            {{ postback.payload.type if postback.payload and postback.payload.type else 'N/A' }}
-                                        </span>
-                                    </td>
                                     <td>
                                         <span class="badge {% if postback.payload and postback.payload.status == 'success' %}bg-success{% elif postback.payload and postback.payload.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
                                             {{ postback.payload.status if postback.payload and postback.payload.status else 'N/A' }}
@@ -48,11 +42,11 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5" class="p-0">
+                                    <td colspan="4" class="p-0">
                                         <div class="collapse" id="details-{{ loop.index }}">
                                             <div class="card card-body bg-light m-2">
                                                 <strong>Payload:</strong>
-                                                <pre class="mb-2"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
+                                                <pre class="mb-2" style="white-space: pre-wrap; word-break: break-all;"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
                                                 <strong>Headers:</strong>
                                                 <pre class="mb-0"><code>{{ postback.headers|tojson(indent=2) }}</code></pre>
                                             </div>
