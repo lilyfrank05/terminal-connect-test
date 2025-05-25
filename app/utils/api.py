@@ -1,5 +1,6 @@
 import requests
 from flask import current_app, flash, session, url_for
+import certifi
 
 from .validation import validate_config
 
@@ -37,6 +38,7 @@ def make_api_request(endpoint, method="POST", payload=None):
             headers=headers,
             json=payload,
             timeout=60,  # 60 seconds timeout
+            verify=certifi.where(),
         )
         response.raise_for_status()
         return response.json(), None
