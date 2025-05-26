@@ -1,5 +1,3 @@
-from flask import Blueprint
-
 from .config import bp as config_bp
 from .sales import bp as sales_bp
 from .refunds import bp as refunds_bp

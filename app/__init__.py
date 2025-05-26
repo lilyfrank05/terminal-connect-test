@@ -22,6 +22,7 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SECRET_KEY="dev",
         DEFAULT_CONFIG=DEFAULT_CONFIG,
+        POSTBACKS_FILE="/tmp/postbacks.json",
     )
     app.config["PREFERRED_URL_SCHEME"] = "https"
 
