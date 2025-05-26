@@ -5,7 +5,9 @@ from flask import current_app, flash, session
 
 def is_valid_uuid(uuid_str):
     """Validate that the string is a valid UUID v4"""
-    pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    if not uuid_str:
+        return False
+    pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     return bool(re.match(pattern, uuid_str.lower()))
 
 

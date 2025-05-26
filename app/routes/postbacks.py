@@ -1,39 +1,63 @@
 import json
 import datetime
 import os
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, current_app
 
 bp = Blueprint("postbacks", __name__)
-
-POSTBACKS_FILE = "/tmp/postbacks.json"
 
 
 # Helper to clear the file if it's a new day
 def clear_postbacks_if_new_day():
     today = datetime.date.today().isoformat()
-    meta_file = POSTBACKS_FILE + ".meta"
+    postbacks_file = current_app.config["POSTBACKS_FILE"]
+    meta_file = postbacks_file + ".meta"
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(postbacks_file), exist_ok=True)
+
+    # Read the last day from meta file
     last_day = None
     if os.path.exists(meta_file):
-        with open(meta_file, "r") as f:
-            last_day = f.read().strip()
+        try:
+            with open(meta_file, "r") as f:
+                last_day = f.read().strip()
+        except Exception:
+            last_day = None
+
+    # If it's a new day or meta file is invalid, clear postbacks
     if last_day != today:
-        with open(POSTBACKS_FILE, "w") as f:
-            json.dump([], f)
-        with open(meta_file, "w") as f:
-            f.write(today)
+        try:
+            # Clear postbacks file
+            with open(postbacks_file, "w") as f:
+                json.dump([], f)
+            # Update meta file with today's date
+            with open(meta_file, "w") as f:
+                f.write(today)
+            return True
+        except Exception:
+            return False
+    return False
 
 
 def load_postbacks():
+    """Load postbacks from file, clearing if it's a new day."""
     clear_postbacks_if_new_day()
+    postbacks_file = current_app.config["POSTBACKS_FILE"]
     try:
-        with open(POSTBACKS_FILE, "r") as f:
-            return json.load(f)
+        if not os.path.exists(postbacks_file):
+            return []
+        with open(postbacks_file, "r") as f:
+            data = f.read().strip()
+            if not data:
+                return []
+            return json.loads(data)
     except Exception:
         return []
 
 
 def save_postbacks(postbacks):
-    with open(POSTBACKS_FILE, "w") as f:
+    postbacks_file = current_app.config["POSTBACKS_FILE"]
+    with open(postbacks_file, "w") as f:
         json.dump(postbacks, f)
 
 
@@ -54,7 +78,9 @@ def postback():
     # Record timestamp and headers
     record = {
         "payload": postback_data,
-        "received_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "received_at": datetime.datetime.now(datetime.UTC)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "headers": mask_headers(dict(request.headers)),
     }
     postbacks = load_postbacks()

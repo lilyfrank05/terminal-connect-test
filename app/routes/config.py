@@ -22,6 +22,24 @@ def index():
 @bp.route("/config", methods=["GET", "POST"])
 def config():
     if request.method == "POST":
+        # Validate required fields
+        required_fields = ["mid", "tid", "api_key", "postback_url"]
+        missing_fields = [
+            field for field in required_fields if not request.form.get(field)
+        ]
+
+        if missing_fields:
+            for field in missing_fields:
+                flash(f"{field.upper()} is required", "error")
+            return render_template(
+                "config.html",
+                environment=request.form.get("environment", "sandbox"),
+                mid=request.form.get("mid", ""),
+                tid=request.form.get("tid", ""),
+                api_key=request.form.get("api_key", ""),
+                postback_url=request.form.get("postback_url", ""),
+            )
+
         # Update configuration in session
         environment = request.form.get("environment", "sandbox")
         session["ENVIRONMENT"] = environment
