@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   build-and-push:
@@ -50,6 +51,8 @@ jobs:
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
 
       - name: Make package public
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Making package public..."
           gh api \
