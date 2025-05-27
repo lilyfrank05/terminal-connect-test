@@ -3,8 +3,6 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -45,8 +43,18 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ github.workflow }}
-          cache-to: type=gha,scope=${{ github.workflow }},mode=max 
+          cache-to: type=gha,scope=${{ github.workflow }},mode=max
+
+      - name: Make package public
+        run: |
+          echo "Making package public..."
+          gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /user/packages/container/${{ env.IMAGE_NAME }}/visibility \
+            -f visibility=public 

@@ -1,10 +1,11 @@
 services:
   web:
-    build: .
+    image: ghcr.io/lilyfrank05/terminal-connect-test:latest
+    pull_policy: always
     ports:
       - "5001:5000"
     volumes:
-      - .:/app
+      - ./data:/tmp
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - MID=${MID}
