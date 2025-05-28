@@ -56,16 +56,47 @@ A Flask application for testing Terminal Connect API integration with support fo
 
 ### Docker Setup
 
-1. Build and run with Docker Compose:
+You have two options for running this application with Docker:
 
-   ```bash
-   docker-compose build
-   docker-compose up
-   ```
+#### 1. Use the Prebuilt Image from GitHub Container Registry
 
-   The application will be available at `http://localhost:5001`
+You can use the prebuilt image hosted on GitHub, as configured in the provided `docker-compose.yml`:
 
-2. The Docker image uses `python:3.12-slim` and installs `ca-certificates` for proper SSL support. Python requests are configured to use the system CA bundle for HTTPS.
+```bash
+docker-compose up
+```
+
+- This will pull the latest image from `ghcr.io/lilyfrank05/terminal-connect-test:latest`.
+- No need to build the image yourself.
+- The application will be available at `http://localhost:5001`.
+
+#### 2. Build the Image Yourself
+
+If you want to build the image locally (for development or customization), please update the docker compose file accordingly and:
+
+```bash
+docker-compose build
+docker-compose up
+```
+
+#### Environment Variables
+
+- Docker Compose will automatically load environment variables from a `.env` file located in the same directory as your `docker-compose.yml`.
+- Create a `.env` file with the following variables:
+
+  ```
+  SECRET_KEY=your_secret_key
+  MID=your_merchant_id
+  TID=your_terminal_id
+  API_KEY=your_api_key
+  ```
+
+- These variables will be passed into the running container and used by the application.
+
+#### Data Persistence
+
+- The application stores postbacks in a file that is persisted on your host machine in the `./data` directory.
+- This ensures postbacks are not lost when the container is restarted.
 
 ### Postback Handling
 
@@ -85,23 +116,3 @@ A Flask application for testing Terminal Connect API integration with support fo
 
 - The Docker image uses the system CA bundle (`/etc/ssl/certs/ca-certificates.crt`) for all outgoing HTTPS requests.
 - If you encounter SSL errors, ensure you have rebuilt your Docker image after any changes to the Dockerfile.
-
-### Docker Commands
-
-```bash
-# Build the image
-docker-compose build
-
-# Start the containers
-docker-compose up
-
-# Run in background
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop the containers
-docker-compose down
-
-```
