@@ -16,10 +16,11 @@
                         <select class="form-select" id="environment" name="environment" required>
                             <option value="sandbox" {% if environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
                             <option value="production" {% if environment == 'production' %}selected{% endif %}>Production</option>
+                            <option value="dev-test" {% if environment == 'dev-test' %}selected{% endif %}>Dev Test</option>
                         </select>
                         <div class="form-text" id="base-url">
                             <i class="bi bi-link-45deg"></i> Base URL: 
-                            <code class="ms-1">{{ 'https://api-terminal-gateway.tillvision.show/devices' if environment == 'sandbox' else 'https://api-terminal-gateway.tillpayments.com/devices' }}</code>
+                            <code class="ms-1">{{ 'https://api-terminal-gateway.tillvision.show/devices' if environment == 'sandbox' else 'https://api-terminal-gateway.tillpayments.com/devices' if environment == 'production' else 'https://api-terminal-gateway.tillpayments.dev/devices' }}</code>
                         </div>
                     </div>
                     <div class="mb-4">
@@ -72,7 +73,8 @@ document.getElementById('environment').addEventListener('change', function() {
     const baseUrlElement = document.getElementById('base-url');
     const urls = {
         'sandbox': 'https://api-terminal-gateway.tillvision.show/devices',
-        'production': 'https://api-terminal-gateway.tillpayments.com/devices'
+        'production': 'https://api-terminal-gateway.tillpayments.com/devices',
+        'dev-test': 'https://api-terminal-gateway.tillpayments.dev/devices'
     };
     baseUrlElement.innerHTML = '<i class="bi bi-link-45deg"></i> Base URL: <code class="ms-1">' + urls[this.value] + '</code>';
 });

@@ -7,6 +7,7 @@ from .validation import validate_config
 ENVIRONMENT_URLS = {
     "production": "https://api-terminal-gateway.tillpayments.com/devices",
     "sandbox": "https://api-terminal-gateway.tillvision.show/devices",
+    "dev-test": "https://api-terminal-gateway.tillpayments.dev/devices",
 }
 
 # Use system CA bundle for Docker compatibility
