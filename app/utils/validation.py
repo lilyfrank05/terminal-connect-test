@@ -7,8 +7,10 @@ def is_valid_uuid(uuid_str):
     """Validate that the string is a valid UUID v4"""
     if not uuid_str:
         return False
-    pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-    return bool(re.match(pattern, uuid_str.lower()))
+    pattern = (
+        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    )
+    return bool(re.match(pattern, uuid_str))
 
 
 def validate_amount(amount_str):

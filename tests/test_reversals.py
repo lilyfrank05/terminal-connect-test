@@ -53,13 +53,16 @@ def test_reversal_without_parent_id(client, mock_config):
     client.post("/config", data=mock_config)
 
     # Make reversal request without parent intent ID
-    response = client.post("/reversal", data={"merchant_reference": "test-ref"})
+    response = client.post(
+        "/reversal",
+        data={"merchant_reference": "test-ref"},
+    )
     assert response.status_code == 302  # Redirect after error
 
     # Follow the redirect to get the flash message
     response = client.get(response.headers["Location"])
     assert response.status_code == 200
-    assert b"Parent Intent ID is required" in response.data
+    assert b"Original Sale Reference is required" in response.data
 
 
 def test_reversal_with_invalid_parent_id(client, mock_config):
@@ -70,14 +73,17 @@ def test_reversal_with_invalid_parent_id(client, mock_config):
     # Make reversal request with invalid parent intent ID
     response = client.post(
         "/reversal",
-        data={"merchant_reference": "test-ref", "parent_intent_id": "invalid-uuid"},
+        data={
+            "merchant_reference": "test-ref",
+            "parent_intent_id": "invalid-uuid",
+        },
     )
     assert response.status_code == 302  # Redirect after error
 
     # Follow the redirect to get the flash message
     response = client.get(response.headers["Location"])
     assert response.status_code == 200
-    assert b"Parent Intent ID must be a valid UUID v4" in response.data
+    assert b"Original Sale Reference must be a valid UUID v4" in response.data
 
 
 def test_reversal_api_error(client, mock_config):

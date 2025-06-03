@@ -105,7 +105,7 @@ def test_linked_refund_without_parent_id(client, mock_config):
     # Follow the redirect to get the flash message
     response = client.get(response.headers["Location"])
     assert response.status_code == 200
-    assert b"Parent Intent ID is required" in response.data
+    assert b"Original Sale Reference is required" in response.data
 
 
 def test_linked_refund_with_invalid_parent_id(client, mock_config):
@@ -128,7 +128,7 @@ def test_linked_refund_with_invalid_parent_id(client, mock_config):
     # Follow the redirect to get the flash message
     response = client.get(response.headers["Location"])
     assert response.status_code == 200
-    assert b"Parent Intent ID must be a valid UUID v4" in response.data
+    assert b"Original Sale Reference must be a valid UUID v4" in response.data
 
 
 def test_refund_api_error(client, mock_config):
