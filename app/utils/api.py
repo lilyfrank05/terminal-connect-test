@@ -1,6 +1,7 @@
 import requests
 from flask import current_app, flash, session, url_for
 import os
+import certifi
 
 from .validation import validate_config
 
@@ -10,8 +11,12 @@ ENVIRONMENT_URLS = {
     "dev-test": "https://api-terminal-gateway.tillpayments.dev/devices",
 }
 
-# Use system CA bundle for Docker compatibility
-VERIFY_PATH = "/etc/ssl/certs/ca-certificates.crt"
+# Use system CA bundle for Docker compatibility, fallback to certifi for local development
+VERIFY_PATH = (
+    "/etc/ssl/certs/ca-certificates.crt"
+    if os.path.exists("/etc/ssl/certs/ca-certificates.crt")
+    else certifi.where()
+)
 
 
 def make_api_request(endpoint, method="POST", payload=None):
