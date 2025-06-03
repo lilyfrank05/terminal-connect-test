@@ -1,21 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Reversal{% endblock %}
+{% block title %}Linked Refund{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-x-circle me-2"></i>Reversal</h4>
+                <h4 class="mb-0"><i class="bi bi-arrow-return-left me-2"></i>Linked Refund</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('reversals.reversal') }}">
+                <form method="POST" action="{{ url_for('refunds.linked_refund') }}">
                     <div class="mb-4">
                         <label for="parent_intent_id" class="form-label">Original Sale Reference</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-link"></i></span>
                             <input type="text" class="form-control" id="parent_intent_id" name="parent_intent_id" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="amount" class="form-label">Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
+                            <input type="text" class="form-control" id="amount" name="amount" required>
                         </div>
                     </div>
                     <div class="mb-4">
@@ -25,9 +32,17 @@
                             <input type="text" class="form-control" id="merchant_reference" name="merchant_reference" value="{{ default_merchant_reference }}" required>
                         </div>
                     </div>
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="via_pinpad" name="via_pinpad" value="yes" checked>
+                            <label class="form-check-label" for="via_pinpad">
+                                Process via PINpad
+                            </label>
+                        </div>
+                    </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-x-circle me-2"></i>Process Reversal
+                            <i class="bi bi-arrow-return-left me-2"></i>Process Refund
                         </button>
                     </div>
                 </form>

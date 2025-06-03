@@ -18,7 +18,7 @@ def reversal():
             flash("Merchant reference is required", "danger")
             return redirect(url_for("reversals.reversal"))
 
-        parent_intent_id = request.form.get("original_merchant_reference")
+        parent_intent_id = request.form.get("parent_intent_id")
         if not parent_intent_id:
             flash("Original Sale Reference is required", "danger")
             return redirect(url_for("reversals.reversal"))
@@ -33,6 +33,7 @@ def reversal():
         payload = {
             "merchantReference": merchant_reference,
             "parentIntentId": parent_intent_id,
+            "postbackUrl": session["POSTBACK_URL"],
         }
 
         response_data, error = make_api_request(endpoint, payload=payload)
