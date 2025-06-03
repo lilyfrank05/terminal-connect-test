@@ -18,14 +18,14 @@ def reversal():
             flash("Merchant reference is required", "danger")
             return redirect(url_for("reversals.reversal"))
 
-        parent_intent_id = request.form.get("parent_intent_id")
+        parent_intent_id = request.form.get("original_merchant_reference")
         if not parent_intent_id:
-            flash("Parent Intent ID is required", "danger")
+            flash("Original Sale Reference is required", "danger")
             return redirect(url_for("reversals.reversal"))
 
         # Validate parent intent ID format
         if not is_valid_uuid(parent_intent_id):
-            flash("Parent Intent ID must be a valid UUID v4", "danger")
+            flash("Original Sale Reference must be a valid UUID v4", "danger")
             return redirect(url_for("reversals.reversal"))
 
         # First API call to create reversal intent
