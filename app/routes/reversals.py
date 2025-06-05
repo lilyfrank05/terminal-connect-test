@@ -1,4 +1,5 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+import json
 
 from ..utils.api import make_api_request, process_intent
 from ..utils.helpers import generate_merchant_reference
@@ -28,6 +29,9 @@ def reversal():
             flash("Original Sale Reference must be a valid UUID v4", "danger")
             return redirect(url_for("reversals.reversal"))
 
+        # Check if via_pinpad checkbox is checked
+        via_pinpad = "via_pinpad" in request.form
+
         # First API call to create reversal intent
         endpoint = f"/merchant/{session['MID']}/intent/reversal"
         payload = {
@@ -35,6 +39,33 @@ def reversal():
             "parentIntentId": parent_intent_id,
             "postbackUrl": session["POSTBACK_URL"],
         }
+
+        # If via_pinpad is not checked, get transaction details first
+        if not via_pinpad:
+            details_endpoint = f"/merchant/{session['MID']}/intent/{parent_intent_id}"
+            details_data, details_error = make_api_request(
+                details_endpoint, method="GET"
+            )
+            if details_error:
+                flash(f"Error getting transaction details: {details_error}", "danger")
+                return redirect(url_for("reversals.reversal"))
+            external_data_str = details_data["transactionDetails"].get(
+                "externalData", {}
+            )
+            try:
+                external_data = json.loads(external_data_str)
+            except Exception:
+                flash("Error parsing transaction details", "danger")
+                return redirect(url_for("reversals.reversal"))
+            payload["transactionDetails"] = {
+                "gatewayReferenceNumber": external_data["gatewayReferenceNumber"],
+                "originalAmount": external_data["originalAmount"],
+                "originalApprovalCode": external_data["originalApprovalCode"],
+                "originalTransactionType": external_data["originalTransactionType"],
+                "mid": external_data["hostMerchantId"],
+                "tid": external_data["hostTerminalId"],
+            }
+            payload["isNonPinpad"] = True
 
         response_data, error = make_api_request(endpoint, payload=payload)
 
