@@ -1,6 +1,7 @@
 import pytest
 import requests_mock
-from flask import session
+
+# from flask import session  # Unused, remove
 
 
 def test_sale_page_loads(client):
