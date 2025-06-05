@@ -78,10 +78,4 @@ def process_intent(intent_id):
     payload = {"tid": tid}
 
     response_data, error = make_api_request(endpoint, payload=payload)
-
-    if error:
-        flash(f"Process failed for Intent ID {intent_id}: {error}", "danger")
-    else:
-        flash(f"Successfully processed Intent ID: {intent_id}", "success")
-
     return response_data, error

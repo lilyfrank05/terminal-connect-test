@@ -19,8 +19,9 @@ def unlinked_refund():
             flash("Amount is required", "danger")
             return redirect(url_for("refunds.unlinked_refund"))
 
-        if not validate_amount(amount_str):
-            flash("Invalid amount format", "danger")
+        is_valid, error = validate_amount(amount_str)
+        if not is_valid:
+            flash(error or "Invalid amount format", "danger")
             return redirect(url_for("refunds.unlinked_refund"))
 
         amount = float(amount_str)
@@ -45,8 +46,13 @@ def unlinked_refund():
 
         # Second API call to process the intent
         intent_id = response_data["intentId"]
-        process_intent(intent_id)
-
+        _, process_error = process_intent(intent_id)
+        if process_error:
+            flash(
+                f"Process failed for Intent ID {intent_id}: {process_error}", "danger"
+            )
+        else:
+            flash(f"Successfully processed Intent ID: {intent_id}", "success")
         return redirect(url_for("refunds.unlinked_refund"))
 
     return render_template(
@@ -65,8 +71,9 @@ def linked_refund():
             flash("Amount is required", "danger")
             return redirect(url_for("refunds.linked_refund"))
 
-        if not validate_amount(amount_str):
-            flash("Invalid amount format", "danger")
+        is_valid, error = validate_amount(amount_str)
+        if not is_valid:
+            flash(error or "Invalid amount format", "danger")
             return redirect(url_for("refunds.linked_refund"))
 
         amount = float(amount_str)
@@ -97,7 +104,7 @@ def linked_refund():
             "postbackUrl": session["POSTBACK_URL"],
         }
 
-        # If viaPinpad is true, get transaction details first
+        # If viaPinpad is not true, get transaction details first
         if not via_pinpad:
             # Get transaction details for the parent intent
             details_endpoint = f"/merchant/{session['MID']}/intent/{parent_intent_id}"
@@ -141,10 +148,16 @@ def linked_refund():
 
         # Only process the intent if via_pinpad is true
         if via_pinpad:
-            process_intent(intent_id)
+            _, process_error = process_intent(intent_id)
+            if process_error:
+                flash(
+                    f"Process failed for Intent ID {intent_id}: {process_error}",
+                    "danger",
+                )
+            else:
+                flash(f"Successfully processed Intent ID: {intent_id}", "success")
         else:
             flash(f"Successfully processed Intent ID: {intent_id}", "success")
-
         return redirect(url_for("refunds.linked_refund"))
 
     return render_template(

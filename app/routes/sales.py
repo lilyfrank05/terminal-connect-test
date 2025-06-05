@@ -41,8 +41,13 @@ def sale():
 
         # Second API call to process the intent
         intent_id = response_data["intentId"]
-        process_intent(intent_id)
-
+        _, process_error = process_intent(intent_id)
+        if process_error:
+            flash(
+                f"Process failed for Intent ID {intent_id}: {process_error}", "danger"
+            )
+        else:
+            flash(f"Successfully processed Intent ID: {intent_id}", "success")
         return redirect(url_for("sales.sale"))
 
     return render_template(

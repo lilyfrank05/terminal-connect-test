@@ -1,6 +1,5 @@
 import pytest
 import requests_mock
-from flask import session
 
 
 def test_reversal_page_loads(client):
@@ -36,15 +35,17 @@ def test_reversal_success(
             "/reversal",
             data={
                 "merchant_reference": "test-ref",
-                "parent_intent_id": "123e4567-e89b-12d3-a456-426614174000",
+                "parent_intent_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
         assert response.status_code == 302  # Redirect after successful reversal
 
-        # Follow the redirect to get the flash message
-        response = client.get(response.headers["Location"])
-        assert response.status_code == 200
-        assert b"Successfully processed Intent ID" in response.data
+        # Check flashed messages in the session immediately after POST
+        with client.session_transaction() as sess:
+            flashed = sess.get("_flashes", [])
+            assert any(
+                "Successfully processed Intent ID" in msg for cat, msg in flashed
+            )
 
 
 def test_reversal_without_parent_id(client, mock_config):
@@ -104,12 +105,12 @@ def test_reversal_api_error(client, mock_config):
             "/reversal",
             data={
                 "merchant_reference": "test-ref",
-                "parent_intent_id": "123e4567-e89b-12d3-a456-426614174000",
+                "parent_intent_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
         assert response.status_code == 302  # Redirect after error
 
-        # Follow the redirect to get the flash message
-        response = client.get(response.headers["Location"])
-        assert response.status_code == 200
-        assert b"API Error" in response.data
+        # Check flashed messages in the session immediately after POST
+        with client.session_transaction() as sess:
+            flashed = sess.get("_flashes", [])
+            assert any("API Error" in msg for cat, msg in flashed)
