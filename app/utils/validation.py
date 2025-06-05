@@ -1,16 +1,19 @@
 import re
 from decimal import Decimal, InvalidOperation
 from flask import current_app, flash, session
+import uuid
 
 
 def is_valid_uuid(uuid_str):
     """Validate that the string is a valid UUID v4"""
     if not uuid_str:
         return False
-    pattern = (
-        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    )
-    return bool(re.match(pattern, uuid_str))
+    try:
+        val = uuid.UUID(uuid_str, version=4)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    # Ensure the version is exactly 4
+    return val.version == 4 and str(val) == uuid_str.lower()
 
 
 def validate_amount(amount_str):
