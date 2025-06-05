@@ -5,7 +5,7 @@ A Flask application for testing Terminal Connect API integration with support fo
 ## Features
 
 - **Configuration Management**
-  - Environment selection (Sandbox/Production)
+  - Environment selection (Dev Test/Sandbox/Production)
   - MID, TID, and API key configuration
   - Built-in postback handling at `/postback` endpoint
 - **Transaction Operations**

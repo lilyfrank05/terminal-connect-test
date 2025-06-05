@@ -1,5 +1,6 @@
 import pytest
-from flask import session
+
+# from flask import session  # Unused, remove
 
 
 def test_config_page_loads(client):
