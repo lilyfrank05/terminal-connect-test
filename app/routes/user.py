@@ -9,8 +9,7 @@ from flask import (
     session,
     flash,
 )
-from app import db
-from app.models.user import User, Invite, Configuration, Postback
+from ..models import db, User, Invite, UserConfig, UserPostback
 from app.utils.email import send_email
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta, UTC
@@ -78,7 +77,7 @@ def create_user_blueprint(name="user"):
             user = User.query.filter_by(email=email).first()
             if not user or not user.check_password(password):
                 return render_template("login.html", error="Invalid credentials")
-            if user.is_suspended:
+            if not user.is_active:
                 return render_template(
                     "login.html",
                     error="Account suspended. Use password reset to unlock.",
@@ -111,8 +110,8 @@ def create_user_blueprint(name="user"):
             email = request.form["email"]
             password = request.form["password"]
             token = request.form["token"]
-            invite = Invite.query.filter_by(token=token, is_used=False).first()
-            if not invite or invite.email != email:
+            invite = Invite.query.filter_by(token=token).first()
+            if not invite or not invite.is_valid() or invite.email != email:
                 return render_template(
                     "register.html", error="Invalid or expired invite"
                 )
@@ -122,9 +121,7 @@ def create_user_blueprint(name="user"):
             user = User(email=email, role=user_role)
             user.set_password(password)
             db.session.add(user)
-            invite.is_used = True
-            invite.used_at = datetime.now(UTC)
-            invite.updated_at = datetime.now(UTC)
+            invite.accept()
             db.session.commit()
             flash("Registration successful. Please log in.", "success")
             return redirect(url_for("user.login_page"))
@@ -134,9 +131,9 @@ def create_user_blueprint(name="user"):
             flash("No invite token provided.", "danger")
             return redirect(url_for("user.login_page"))
 
-        invite = Invite.query.filter_by(token=token, is_used=False).first()
+        invite = Invite.query.filter_by(token=token).first()
 
-        if not invite:
+        if not invite or not invite.is_valid():
             flash("Invalid or expired invite token.", "danger")
             return redirect(url_for("user.login_page"))
 
@@ -150,8 +147,8 @@ def create_user_blueprint(name="user"):
             if user:
                 # Generate a random token
                 token = str(uuid.uuid4())
-                user.password_reset_token = token
-                user.password_reset_expiration = datetime.now(UTC) + timedelta(hours=1)
+                user.reset_token = token
+                user.reset_token_expires = datetime.now(UTC) + timedelta(hours=1)
                 db.session.commit()
 
                 # Send password reset email
@@ -179,21 +176,18 @@ def create_user_blueprint(name="user"):
             flash("Password reset token is missing.", "danger")
             return redirect(url_for("user.login_page"))
 
-        user = User.query.filter_by(password_reset_token=token).first()
+        user = User.query.filter_by(reset_token=token).first()
 
-        if not user or user.password_reset_expiration.replace(
-            tzinfo=UTC
-        ) < datetime.now(UTC):
+        if not user or user.reset_token_expires.replace(tzinfo=UTC) < datetime.now(UTC):
             flash("Password reset token is invalid or has expired.", "danger")
             return redirect(url_for("user.login_page"))
 
         if request.method == "POST":
             password = request.form["password"]
             user.set_password(password)
-            user.password_reset_token = None
-            user.password_reset_expiration = None
-            user.is_suspended = False
-            user.failed_login_attempts = 0
+            user.reset_token = None
+            user.reset_token_expires = None
+            user.is_active = True
             db.session.commit()
             flash(
                 "Your password has been reset successfully. Please log in.", "success"
@@ -250,27 +244,22 @@ def create_user_blueprint(name="user"):
         existing_invite = Invite.query.filter_by(email=email).first()
 
         if existing_invite:
-            if existing_invite.is_used:
+            if existing_invite.status == "accepted":
                 # Check if the user still exists - if they were removed, allow re-inviting
                 existing_user = User.query.filter_by(email=email).first()
                 if existing_user:
                     flash("This email has already been used to register.", "warning")
                     return redirect(url_for("user.manage_invites"))
                 else:
-                    # User was removed, reset the invite for reuse
-                    existing_invite.is_used = False
-                    existing_invite.is_canceled = False
-                    existing_invite.token = str(uuid.uuid4())  # Generate new token
-                    existing_invite.role = role  # Update role if changed
-                    existing_invite.invited_by = admin.id  # Update inviter
-                    existing_invite.updated_at = datetime.now(UTC)
-                    existing_invite.used_at = None  # Clear used timestamp
+                    # User was removed, create a new invite
+                    new_invite = Invite(email=email, invited_by=admin.id, role=role)
+                    db.session.add(new_invite)
                     db.session.commit()
 
                     # Send new invite email
                     invite_link = url_for(
                         "user.register_page",
-                        token=existing_invite.token,
+                        token=new_invite.token,
                         _external=True,
                     )
                     send_email(
@@ -283,16 +272,14 @@ def create_user_blueprint(name="user"):
                         "success",
                     )
                     return redirect(url_for("user.manage_invites"))
-            elif not existing_invite.is_canceled:
+            elif existing_invite.status == "pending":
                 flash("This email already has a pending invite.", "warning")
                 return redirect(url_for("user.manage_invites"))
-            else:
-                # Reactivate cancelled invite
-                existing_invite.is_canceled = False
-                existing_invite.token = str(uuid.uuid4())  # Generate new token
+            elif existing_invite.status in ["cancelled", "expired"]:
+                # Extend the existing invite
+                existing_invite.extend_expiry()
                 existing_invite.role = role  # Update role if changed
                 existing_invite.invited_by = admin.id  # Update inviter
-                existing_invite.updated_at = datetime.now(UTC)
                 db.session.commit()
 
                 # Send reactivated invite email
@@ -308,13 +295,12 @@ def create_user_blueprint(name="user"):
                 return redirect(url_for("user.manage_invites"))
 
         # Create new invite if none exists
-        token = str(uuid.uuid4())
-        invite = Invite(email=email, token=token, invited_by=admin.id, role=role)
+        invite = Invite(email=email, invited_by=admin.id, role=role)
         db.session.add(invite)
         db.session.commit()
 
         # Send invite email
-        invite_link = url_for("user.register_page", token=token, _external=True)
+        invite_link = url_for("user.register_page", token=invite.token, _external=True)
         send_email(
             email,
             "You are invited to join Terminal Connect Test",
@@ -327,11 +313,10 @@ def create_user_blueprint(name="user"):
     @admin_required
     def cancel_invite(invite_id):
         invite = db.get_or_404(Invite, invite_id)
-        if invite.is_used or invite.is_canceled:
+        if invite.status in ["accepted", "cancelled"]:
             flash("This invite cannot be canceled.", "warning")
         else:
-            invite.is_canceled = True
-            invite.updated_at = datetime.now(UTC)
+            invite.cancel()
             db.session.commit()
             flash(f"Invite for {invite.email} has been canceled.", "success")
         return redirect(url_for("user.manage_invites"))

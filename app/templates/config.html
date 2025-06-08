@@ -124,23 +124,23 @@
                                     <div class="mb-2">
                                         <label class="form-label-sm">Environment</label>
                                         <select name="environment_{{ conf.id }}" class="form-select form-select-sm">
-                                            <option value="sandbox" {% if conf.data.environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
-                                            <option value="production" {% if conf.data.environment == 'production' %}selected{% endif %}>Production</option>
-                                            <option value="dev-test" {% if conf.data.environment == 'dev-test' %}selected{% endif %}>Dev Test</option>
+                                            <option value="sandbox" {% if conf.environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
+                                            <option value="production" {% if conf.environment == 'production' %}selected{% endif %}>Production</option>
+                                            <option value="dev-test" {% if conf.environment == 'dev-test' %}selected{% endif %}>Dev Test</option>
                                         </select>
                                     </div>
                                     <div class="mb-2">
                                         <label class="form-label-sm">MID</label>
-                                        <input type="text" name="mid_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.mid }}" required>
+                                        <input type="text" name="mid_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.mid }}" required>
                                     </div>
                                     <div class="mb-2">
                                         <label class="form-label-sm">TID</label>
-                                        <input type="text" name="tid_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.tid }}" required>
+                                        <input type="text" name="tid_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.tid }}" required>
                                     </div>
                                     <div class="mb-2">
                                         <label class="form-label-sm">API Key</label>
                                         <div class="input-group">
-                                            <input type="password" name="api_key_{{ conf.id }}" id="api_key_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.api_key }}" required>
+                                            <input type="password" name="api_key_{{ conf.id }}" id="api_key_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.api_key }}" required>
                                             <button class="btn btn-outline-secondary btn-sm" type="button" onclick="togglePasswordVisibility('api_key_{{ conf.id }}', this)">
                                                 <i class="bi bi-eye"></i>
                                             </button>
@@ -148,7 +148,7 @@
                                     </div>
                                     <div class="mb-2">
                                         <label class="form-label-sm">Postback URL</label>
-                                        <input type="url" name="postback_url_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.postback_url or '' }}" placeholder="https://your-server.com/webhook">
+                                        <input type="url" name="postback_url_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.postback_url or '' }}" placeholder="https://your-server.com/webhook">
                                         <div class="form-text small">Leave blank for built-in handler</div>
                                     </div>
                                     <div class="d-grid">
