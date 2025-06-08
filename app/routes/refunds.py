@@ -4,11 +4,13 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 from ..utils.api import make_api_request, process_intent
 from ..utils.helpers import generate_merchant_reference
 from ..utils.validation import validate_amount, validate_config, is_valid_uuid
+from .user import login_required
 
 bp = Blueprint("refunds", __name__)
 
 
 @bp.route("/unlinked-refund", methods=["GET", "POST"])
+@login_required
 def unlinked_refund():
     if request.method == "POST":
         if not validate_config():
@@ -61,6 +63,7 @@ def unlinked_refund():
 
 
 @bp.route("/linked-refund", methods=["GET", "POST"])
+@login_required
 def linked_refund():
     if request.method == "POST":
         if not validate_config():
@@ -117,9 +120,12 @@ def linked_refund():
                 return redirect(url_for("refunds.linked_refund"))
 
             # Parse externalData string into dictionary
-            external_data_str = details_data["transactionDetails"].get(
-                "externalData", {}
+            external_data_str = details_data.get("transactionDetails", {}).get(
+                "externalData"
             )
+            if not external_data_str:
+                flash("Could not find externalData in transaction details", "danger")
+                return redirect(url_for("refunds.linked_refund"))
             try:
                 external_data = json.loads(external_data_str)
             except json.JSONDecodeError:
@@ -154,10 +160,11 @@ def linked_refund():
                     f"Process failed for Intent ID {intent_id}: {process_error}",
                     "danger",
                 )
+                return redirect(url_for("refunds.linked_refund"))
             else:
                 flash(f"Successfully processed Intent ID: {intent_id}", "success")
         else:
-            flash(f"Successfully processed Intent ID: {intent_id}", "success")
+            flash(f"Successfully created refund Intent ID: {intent_id}", "success")
         return redirect(url_for("refunds.linked_refund"))
 
     return render_template(

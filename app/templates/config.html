@@ -3,95 +3,214 @@
 {% block title %}Configuration{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
+<div class="row">
+    <!-- Main Config Form -->
+    <div class="col-lg-7">
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-gear me-2"></i>Terminal Connect Configuration</h4>
+                <h4 class="mb-0">
+                    {% if session.user_id %}
+                        <i class="bi bi-plus-circle me-2"></i>Create New Configuration
+                    {% else %}
+                        <i class="bi bi-gear me-2"></i>Current Configuration
+                    {% endif %}
+                </h4>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('config.config') }}">
-                    <div class="mb-4">
-                        <label for="environment" class="form-label">Environment</label>
-                        <select class="form-select" id="environment" name="environment" required>
+                    {% if session.user_id %}
+                    <div class="mb-3">
+                        <label for="config_name" class="form-label">Configuration Name</label>
+                        <input type="text" class="form-control" id="config_name" name="config_name" placeholder="e.g., Production Setup" required>
+                    </div>
+                    <hr>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Environment</label>
+                        <div id="base-url" class="form-text mb-2">
+                            <i class="bi bi-link-45deg"></i> Base URL: <code class="ms-1"></code>
+                        </div>
+                        <select class="form-select" id="environment" name="environment">
                             <option value="sandbox" {% if environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
                             <option value="production" {% if environment == 'production' %}selected{% endif %}>Production</option>
                             <option value="dev-test" {% if environment == 'dev-test' %}selected{% endif %}>Dev Test</option>
                         </select>
-                        <div class="form-text" id="base-url">
-                            <i class="bi bi-link-45deg"></i> Base URL: 
-                            <code class="ms-1">{{ 'https://api-terminal-gateway.tillvision.show/devices' if environment == 'sandbox' else 'https://api-terminal-gateway.tillpayments.com/devices' if environment == 'production' else 'https://api-terminal-gateway.tillpayments.dev/devices' }}</code>
-                        </div>
                     </div>
-                    <div class="mb-4">
-                        <label for="mid" class="form-label">Merchant ID (MID)</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-shop"></i></span>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="mid" class="form-label">Merchant ID (MID)</label>
                             <input type="text" class="form-control" id="mid" name="mid" value="{{ mid }}" required>
                         </div>
-                    </div>
-                    <div class="mb-4">
-                        <label for="tid" class="form-label">Terminal ID (TID)</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-terminal"></i></span>
+                        <div class="col-md-6 mb-3">
+                            <label for="tid" class="form-label">Terminal ID (TID)</label>
                             <input type="text" class="form-control" id="tid" name="tid" value="{{ tid }}" required>
                         </div>
                     </div>
-                    <div class="mb-4">
+
+                    <div class="mb-3">
                         <label for="api_key" class="form-label">API Key</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-key"></i></span>
                             <input type="password" class="form-control" id="api_key" name="api_key" value="{{ api_key }}" required>
-                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('api_key', this)">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
                     </div>
+
                     <div class="mb-4">
                         <label for="postback_url" class="form-label">Postback URL</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-arrow-return-right"></i></span>
-                            <input type="url" class="form-control" id="postback_url" name="postback_url" value="{{ postback_url }}" required>
+                            <input type="url" class="form-control" id="postback_url" name="postback_url" value="{{ postback_url }}" placeholder="https://your-server.com/webhook">
+                            <button class="btn btn-outline-secondary" type="button" onclick="resetToDefault()">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
                         </div>
                         <div class="form-text">
-                            Default: <code>{{ url_for('postbacks.postback', _external=True) }}</code>
+                            <i class="bi bi-info-circle"></i> 
+                            URL where payment notifications will be sent. Leave blank to use the built-in postback handler.
                         </div>
                     </div>
+                    
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save me-2"></i>Save Configuration
+                            {% if session.user_id %}
+                                <i class="bi bi-save me-2"></i>Save New Configuration
+                            {% else %}
+                                <i class="bi bi-save me-2"></i>Save for Session
+                            {% endif %}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    <!-- Saved Configs List for Logged-in Users -->
+    {% if session.user_id %}
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-archive me-2"></i>Saved Configurations</h4>
+            </div>
+            <div class="card-body">
+                {% if user_configs %}
+                    <ul class="list-group">
+                        {% for conf in user_configs %}
+                        <li class="list-group-item {% if session.active_config_id == conf.id %}active{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong class="text-break">{{ conf.name }}</strong>
+                                <div>
+                                    <a href="{{ url_for('config.load_config', config_id=conf.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Load">
+                                        <i class="bi bi-arrow-down-circle"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ conf.id }}" aria-expanded="false" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form action="{{ url_for('config.delete_config', config_id=conf.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this configuration?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="collapse mt-3" id="collapse-{{ conf.id }}">
+                                <form action="{{ url_for('config.update_config', config_id=conf.id) }}" method="POST">
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">Name</label>
+                                        <input type="text" name="config_name_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.name }}" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">Environment</label>
+                                        <select name="environment_{{ conf.id }}" class="form-select form-select-sm">
+                                            <option value="sandbox" {% if conf.data.environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
+                                            <option value="production" {% if conf.data.environment == 'production' %}selected{% endif %}>Production</option>
+                                            <option value="dev-test" {% if conf.data.environment == 'dev-test' %}selected{% endif %}>Dev Test</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">MID</label>
+                                        <input type="text" name="mid_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.mid }}" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">TID</label>
+                                        <input type="text" name="tid_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.tid }}" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">API Key</label>
+                                        <div class="input-group">
+                                            <input type="password" name="api_key_{{ conf.id }}" id="api_key_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.api_key }}" required>
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="togglePasswordVisibility('api_key_{{ conf.id }}', this)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">Postback URL</label>
+                                        <input type="url" name="postback_url_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.data.postback_url or '' }}" placeholder="https://your-server.com/webhook">
+                                        <div class="form-text small">Leave blank for built-in handler</div>
+                                    </div>
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-sm btn-success">Update</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="bi bi-info-circle fs-1"></i>
+                        <p class="mt-2">You have no saved configurations.</p>
+                        <p>Use the form on the left to create one.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script>
-document.getElementById('environment').addEventListener('change', function() {
-    const baseUrlElement = document.getElementById('base-url');
+document.addEventListener('DOMContentLoaded', function() {
+    const environmentSelect = document.getElementById('environment');
+    const baseUrlElement = document.getElementById('base-url').querySelector('code');
     const urls = {
         'sandbox': 'https://api-terminal-gateway.tillvision.show/devices',
         'production': 'https://api-terminal-gateway.tillpayments.com/devices',
         'dev-test': 'https://api-terminal-gateway.tillpayments.dev/devices'
     };
-    baseUrlElement.innerHTML = '<i class="bi bi-link-45deg"></i> Base URL: <code class="ms-1">' + urls[this.value] + '</code>';
+
+    function updateBaseUrl() {
+        baseUrlElement.textContent = urls[environmentSelect.value];
+    }
+
+    environmentSelect.addEventListener('change', updateBaseUrl);
+    
+    // Initial update
+    updateBaseUrl();
 });
 
-document.getElementById('togglePassword').addEventListener('click', function() {
-    const apiKeyInput = document.getElementById('api_key');
-    const icon = this.querySelector('i');
-    
-    if (apiKeyInput.type === 'password') {
-        apiKeyInput.type = 'text';
+function togglePasswordVisibility(fieldId, button) {
+    const input = document.getElementById(fieldId);
+    const icon = button.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
         icon.classList.remove('bi-eye');
         icon.classList.add('bi-eye-slash');
     } else {
-        apiKeyInput.type = 'password';
+        input.type = 'password';
         icon.classList.remove('bi-eye-slash');
         icon.classList.add('bi-eye');
     }
-});
+}
+
+function resetToDefault() {
+    const postbackInput = document.getElementById('postback_url');
+    // Get the default postback URL (current app's /postback endpoint)
+    const defaultUrl = window.location.origin + '/postback';
+    postbackInput.value = defaultUrl;
+}
 </script>
 {% endblock %}

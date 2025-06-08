@@ -174,3 +174,5 @@ cython_debug/
 .vscode/
 .coverage
 .coverage*
+
+docker-compose.local.yml

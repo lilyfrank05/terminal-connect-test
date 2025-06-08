@@ -1,26 +1,28 @@
 services:
   web:
-    image: ghcr.io/lilyfrank05/terminal-connect-test:latest
-    pull_policy: always
+    build: .
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - FLASK_ENV=development
       - FLASK_APP=app:create_app
-      - ADMIN_EMAIL=${ADMIN_EMAIL}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - BREVO_API_KEY=${BREVO_API_KEY}
-      - SECRET_KEY=${SECRET_KEY}
-      - MID=${MID}
-      - TID=${TID}
-      - API_KEY=${API_KEY}
-      # Gunicorn Production Configuration
-      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@localhost.dev}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-dev-password-123}
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-for-local-development}
+      - MID=${MID:-}
+      - TID=${TID:-}
+      - API_KEY=${API_KEY:-}
+      - DEBUG=true
+      # Gunicorn Development Configuration (lighter load)
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
       - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-sync}
-      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-60}
-      - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-1000}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
+      - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-0}
     ports:
       - "5001:5000"
     volumes:
       - ./data:/tmp
+      - .:/app # Mount source code for development
     depends_on:
       db:
         condition: service_healthy
@@ -28,11 +30,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
           cpus: '0.5'
           memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
@@ -54,11 +56,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
           cpus: '0.25'
           memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s

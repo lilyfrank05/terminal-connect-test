@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}Manage Invites{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Send Invite Form -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-person-plus me-2"></i>Send Invite</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Send a new invite or reactivate a cancelled one. If the email has a cancelled invite, it will be reactivated with a new token.
+                </p>
+                <form action="{{ url_for('user.send_invite') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Role</label>
+                        <select class="form-select" id="role" name="role">
+                            <option value="user" selected>User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Send Invite</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invites List -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-envelope me-2"></i>Existing Invites</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Sent On</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invite in invites %}
+                            <tr>
+                                <td class="text-break">{{ invite.email }}</td>
+                                <td><span class="badge bg-secondary">{{ invite.role|capitalize }}</span></td>
+                                <td>
+                                    {% if invite.is_canceled %}
+                                        <span class="badge bg-danger">Canceled</span>
+                                        <small class="text-muted d-block">Can be reactivated</small>
+                                    {% elif invite.is_used %}
+                                        <span class="badge bg-success">Used on {{ invite.used_at.strftime('%Y-%m-%d') }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ invite.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    {% if invite.updated_at %}
+                                        {{ invite.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not invite.is_used and not invite.is_canceled %}
+                                    <form action="{{ url_for('user.cancel_invite', invite_id=invite.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this invite?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                                    </form>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-secondary" disabled>Cancel</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">No invites have been sent yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

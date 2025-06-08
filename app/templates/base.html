@@ -1,3 +1,5 @@
+{% set logged_in = session.get('user_id') %}
+{% set is_admin = session.get('user_role') == 'admin' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,7 +62,7 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'sales.sale' %}active{% endif %}" href="{{ url_for('sales.sale') }}">
                             <i class="bi bi-cart me-1"></i> Sale
@@ -93,6 +95,28 @@
                             <i class="bi bi-gear me-1"></i> Configuration
                         </a>
                     </li>
+                    {% if logged_in %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i> Account
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('user.profile_page') }}">Profile</a></li>
+                            {% if is_admin %}
+                            <li><a class="dropdown-item" href="{{ url_for('user.user_list') }}">User Management</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('user.manage_invites') }}">Manage Invites</a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('user.logout_page') }}">Logout</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'user.login_page' %}active{% endif %}" href="{{ url_for('user.login_page') }}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
