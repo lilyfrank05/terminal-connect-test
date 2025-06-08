@@ -1,5 +1,5 @@
-# Use Python 3.12 slim image
-FROM python:3.12-slim
+# Use Python 3.11 slim image
+FROM python:3.11-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -17,6 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Copy initialization script and entrypoint script and make them executable
+RUN chmod +x /app/entrypoint.sh /app/init_db.py
+
 # Create a non-root user
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
@@ -24,5 +27,9 @@ USER appuser
 # Expose the port
 EXPOSE 5000
 
-# Use Gunicorn as the production server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "app:create_app()"] 
+# Health check to ensure the application is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Use entrypoint script
+ENTRYPOINT ["/app/entrypoint.sh"] 

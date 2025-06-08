@@ -4,11 +4,13 @@ import json
 from ..utils.api import make_api_request, process_intent
 from ..utils.helpers import generate_merchant_reference
 from ..utils.validation import is_valid_uuid, validate_config
+from .user import login_required
 
 bp = Blueprint("reversals", __name__)
 
 
 @bp.route("/reversal", methods=["GET", "POST"])
+@login_required
 def reversal():
     if request.method == "POST":
         if not validate_config():
@@ -49,9 +51,12 @@ def reversal():
             if details_error:
                 flash(f"Error getting transaction details: {details_error}", "danger")
                 return redirect(url_for("reversals.reversal"))
-            external_data_str = details_data["transactionDetails"].get(
-                "externalData", {}
+            external_data_str = details_data.get("transactionDetails", {}).get(
+                "externalData"
             )
+            if not external_data_str:
+                flash("Could not find externalData in transaction details", "danger")
+                return redirect(url_for("reversals.reversal"))
             try:
                 external_data = json.loads(external_data_str)
             except Exception:
@@ -75,6 +80,8 @@ def reversal():
 
         # Second API call to process the intent
         intent_id = response_data["intentId"]
+
+        # In a reversal, the intent is always processed immediately.
         _, process_error = process_intent(intent_id)
         if process_error:
             flash(

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5" style="max-width: 400px;">
+  <h2 class="mb-4 text-center">Login</h2>
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="{{ url_for('user.login_page') }}">
+    <div class="mb-3">
+      <label for="email" class="form-label">Email address</label>
+      <input type="email" class="form-control" id="email" name="email" required autofocus>
+    </div>
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input type="password" class="form-control" id="password" name="password" required>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Login</button>
+  </form>
+  <div class="mt-3 text-center">
+    <a href="{{ url_for('user.register_page') }}">Register</a> |
+    <a href="{{ url_for('user.forgot_password_page') }}">Forgot Password?</a>
+  </div>
+  <div class="mt-3 text-center">
+    <a href="{{ url_for('user.guest_login') }}">Continue as Guest</a>
+  </div>
+</div>
+{% endblock %} 

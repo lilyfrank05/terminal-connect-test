@@ -1,5 +1,5 @@
 import pytest
-from app import create_app
+from app import create_app, db
 import os
 import tempfile
 import json
@@ -11,11 +11,17 @@ def app():
     # Create a temporary file to store postbacks
     fd, path = tempfile.mkstemp()
     os.close(fd)
+    guest_fd, guest_path = tempfile.mkstemp()
+    os.close(guest_fd)
 
     app = create_app(
         {
             "TESTING": True,
             "SECRET_KEY": "test-key",
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "WTF_CSRF_ENABLED": False,  # Disable CSRF for testing forms
+            "POSTBACKS_FILE": path,  # For old tests if any
+            "GUEST_POSTBACKS_FILE": guest_path,  # For new guest tests
             "DEFAULT_CONFIG": {
                 "ENVIRONMENT": "sandbox",
                 "BASE_URL": "https://api-terminal-gateway.tillvision.show/devices",
@@ -29,10 +35,17 @@ def app():
     # Override the postbacks file path for testing
     app.config["POSTBACKS_FILE"] = path
 
+    with app.app_context():
+        db.create_all()
+
     yield app
+
+    with app.app_context():
+        db.drop_all()
 
     # Clean up
     os.unlink(path)
+    os.unlink(guest_path)
 
 
 @pytest.fixture
