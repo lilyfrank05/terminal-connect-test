@@ -11,31 +11,30 @@ from flask import (
 
 from ..utils.api import ENVIRONMENT_URLS
 from ..utils.validation import validate_url
-from .user import login_required, user_only_required
-from app import db
-from app.models.user import Configuration, User
+from ..utils.auth import optional_jwt_user
+from ..models import db, UserConfig, User
 
 
 bp = Blueprint("config", __name__)
 
 
 @bp.route("/")
-@login_required
-def index():
+@optional_jwt_user
+def index(user):
     # If a user is logged in but has no config in session, load their first one
     if "user_id" in session and not session.get("MID"):
-        config = Configuration.query.filter_by(user_id=session["user_id"]).first()
+        config = UserConfig.query.filter_by(user_id=session["user_id"]).first()
         if config:
             return redirect(url_for("config.load_config", config_id=config.id))
     return redirect(url_for("config.config"))
 
 
 @bp.route("/config", methods=["GET", "POST"])
-@login_required
-def config():
+@optional_jwt_user
+def config(user):
     user_configs = []
     if "user_id" in session:
-        user_configs = Configuration.query.filter_by(user_id=session["user_id"]).all()
+        user_configs = UserConfig.query.filter_by(user_id=session["user_id"]).all()
 
     if request.method == "POST":
         # Validate required fields
@@ -73,7 +72,7 @@ def config():
         # If user is logged in, save to DB. Otherwise, save to session.
         if "user_id" in session:
             # Enforce a limit of 10 configurations per user
-            if Configuration.query.filter_by(user_id=session["user_id"]).count() >= 10:
+            if UserConfig.query.filter_by(user_id=session["user_id"]).count() >= 10:
                 flash(
                     "You have reached the maximum of 10 saved configurations.", "danger"
                 )
@@ -84,8 +83,15 @@ def config():
                 flash("Configuration Name is required.", "danger")
                 return redirect(url_for("config.config"))
 
-            new_config = Configuration(
-                user_id=session["user_id"], name=config_name, data=config_data
+            new_config = UserConfig(
+                user_id=session["user_id"],
+                name=config_name,
+                environment=config_data["environment"],
+                base_url=config_data.get("base_url", ""),
+                mid=config_data["mid"],
+                tid=config_data["tid"],
+                api_key=config_data["api_key"],
+                postback_url=config_data["postback_url"],
             )
             db.session.add(new_config)
             db.session.commit()
@@ -124,30 +130,30 @@ def config():
 
 
 @bp.route("/config/load/<int:config_id>")
-@user_only_required
-def load_config(config_id):
-    config = db.get_or_404(Configuration, config_id)
+@optional_jwt_user
+def load_config(user, config_id):
+    config = db.get_or_404(UserConfig, config_id)
     if config.user_id != session["user_id"]:
         return "Unauthorized", 403
 
     # Load config data into session
     session["active_config_id"] = config.id
-    session["ENVIRONMENT"] = config.data.get("environment", "sandbox")
-    session["BASE_URL"] = ENVIRONMENT_URLS[session["ENVIRONMENT"]]
-    session["MID"] = config.data.get("mid", "")
-    session["TID"] = config.data.get("tid", "")
-    session["API_KEY"] = config.data.get("api_key", "")
-    session["POSTBACK_URL"] = config.data.get(
-        "postback_url", url_for("postbacks.postback", _external=True)
+    session["ENVIRONMENT"] = config.environment
+    session["BASE_URL"] = config.base_url
+    session["MID"] = config.mid
+    session["TID"] = config.tid
+    session["API_KEY"] = config.api_key
+    session["POSTBACK_URL"] = config.postback_url or url_for(
+        "postbacks.postback", _external=True
     )
     flash(f"Loaded configuration '{config.name}'.", "info")
     return redirect(url_for("config.config"))
 
 
 @bp.route("/config/delete/<int:config_id>", methods=["POST"])
-@user_only_required
-def delete_config(config_id):
-    config = db.get_or_404(Configuration, config_id)
+@optional_jwt_user
+def delete_config(user, config_id):
+    config = db.get_or_404(UserConfig, config_id)
     if config.user_id != session["user_id"]:
         return "Unauthorized", 403
 
@@ -163,9 +169,9 @@ def delete_config(config_id):
 
 
 @bp.route("/config/update/<int:config_id>", methods=["POST"])
-@user_only_required
-def update_config(config_id):
-    config = db.get_or_404(Configuration, config_id)
+@optional_jwt_user
+def update_config(user, config_id):
+    config = db.get_or_404(UserConfig, config_id)
     if config.user_id != session["user_id"]:
         return "Unauthorized", 403
 
@@ -187,17 +193,14 @@ def update_config(config_id):
     if not postback_url:
         postback_url = url_for("postbacks.postback", _external=True)
 
-    # Make a copy of the config data to ensure SQLAlchemy detects the change
-    updated_data = dict(config.data)
-    updated_data["environment"] = request.form.get(f"environment_{config_id}")
-    updated_data["mid"] = request.form.get(f"mid_{config_id}")
-    updated_data["tid"] = request.form.get(f"tid_{config_id}")
-    updated_data["api_key"] = request.form.get(f"api_key_{config_id}")
-    updated_data["postback_url"] = postback_url
-
-    # Update name and data
+    # Update config fields
     config.name = config_name
-    config.data = updated_data
+    config.environment = request.form.get(f"environment_{config_id}")
+    config.base_url = ENVIRONMENT_URLS.get(config.environment, "")
+    config.mid = request.form.get(f"mid_{config_id}")
+    config.tid = request.form.get(f"tid_{config_id}")
+    config.api_key = request.form.get(f"api_key_{config_id}")
+    config.postback_url = postback_url
 
     db.session.commit()
 

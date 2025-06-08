@@ -48,7 +48,7 @@
                                 <th>Role</th>
                                 <th>Status</th>
                                 <th>Sent On</th>
-                                <th>Last Updated</th>
+                                <th>Accepted At</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -58,25 +58,27 @@
                                 <td class="text-break">{{ invite.email }}</td>
                                 <td><span class="badge bg-secondary">{{ invite.role|capitalize }}</span></td>
                                 <td>
-                                    {% if invite.is_canceled %}
-                                        <span class="badge bg-danger">Canceled</span>
+                                    {% if invite.status == 'cancelled' %}
+                                        <span class="badge bg-danger">Cancelled</span>
                                         <small class="text-muted d-block">Can be reactivated</small>
-                                    {% elif invite.is_used %}
-                                        <span class="badge bg-success">Used on {{ invite.used_at.strftime('%Y-%m-%d') }}</span>
+                                    {% elif invite.status == 'accepted' %}
+                                        <span class="badge bg-success">Accepted on {{ invite.accepted_at.strftime('%Y-%m-%d') if invite.accepted_at }}</span>
+                                    {% elif invite.status == 'expired' %}
+                                        <span class="badge bg-secondary">Expired</span>
                                     {% else %}
                                         <span class="badge bg-warning text-dark">Pending</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ invite.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>
-                                    {% if invite.updated_at %}
-                                        {{ invite.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% if invite.accepted_at %}
+                                        {{ invite.accepted_at.strftime('%Y-%m-%d %H:%M') }}
                                     {% else %}
                                         <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if not invite.is_used and not invite.is_canceled %}
+                                    {% if invite.status == 'pending' %}
                                     <form action="{{ url_for('user.cancel_invite', invite_id=invite.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this invite?');">
                                         <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
                                     </form>

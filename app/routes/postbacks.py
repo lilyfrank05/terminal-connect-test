@@ -2,9 +2,9 @@ import json
 import datetime
 import os
 from flask import Blueprint, request, jsonify, render_template, current_app, session
-from .user import login_required
-from app import db
-from app.models.user import Postback, User
+from ..utils.auth import optional_jwt_user
+from ..models import db
+from ..models import UserPostback, User
 
 bp = Blueprint("postbacks", __name__)
 
@@ -78,23 +78,28 @@ def postback():
 
     if user_id:
         # Logged-in user: save to database
-        count = Postback.query.filter_by(user_id=user_id).count()
+        count = UserPostback.query.filter_by(user_id=user_id).count()
         if count >= 10000:
             # Overwrite the oldest postback
             oldest = (
-                Postback.query.filter_by(user_id=user_id)
-                .order_by(Postback.created_at.asc())
+                UserPostback.query.filter_by(user_id=user_id)
+                .order_by(UserPostback.created_at.asc())
                 .first()
             )
             if oldest:
                 db.session.delete(oldest)
 
-        new_postback = Postback(
+        new_postback = UserPostback(
             user_id=user_id,
-            data={
-                "payload": postback_data,
-                "headers": mask_headers(dict(request.headers)),
-            },
+            transaction_type="postback",
+            transaction_id=str(postback_data.get("id", "")),
+            status="received",
+            postback_data=json.dumps(
+                {
+                    "payload": postback_data,
+                    "headers": mask_headers(dict(request.headers)),
+                }
+            ),
         )
         db.session.add(new_postback)
         db.session.commit()
@@ -117,23 +122,24 @@ def postback():
 
 
 @bp.route("/postbacks", methods=["GET"])
-@login_required
-def list_postbacks():
+@optional_jwt_user
+def list_postbacks(user):
     """Display the list of received postbacks"""
     postbacks = []
     if "user_id" in session:
         # Logged-in user: get from DB
         user_postbacks = (
-            Postback.query.filter_by(user_id=session["user_id"])
-            .order_by(Postback.created_at.desc())
+            UserPostback.query.filter_by(user_id=session["user_id"])
+            .order_by(UserPostback.created_at.desc())
             .all()
         )
         # Format for template
         for pb in user_postbacks:
+            pb_data = json.loads(pb.postback_data)
             postbacks.append(
                 {
-                    "payload": pb.data.get("payload"),
-                    "headers": pb.data.get("headers"),
+                    "payload": pb_data.get("payload"),
+                    "headers": pb_data.get("headers"),
                     "received_at": pb.created_at.isoformat().replace("+00:00", "Z"),
                 }
             )
