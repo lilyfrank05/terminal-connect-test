@@ -1,7 +1,7 @@
 import pytest
 import requests_mock
 from unittest.mock import patch
-from app.models.user import User, Invite, Configuration, Postback
+from app.models import User, Invite, UserConfig, UserPostback
 from app import db
 
 
@@ -103,6 +103,7 @@ class TestAuth:
         with client.application.app_context():
             invite = Invite.query.filter_by(email="registerme@test.com").first()
             assert invite is not None
+            assert invite.status == "pending"
         response = client.post(
             "/user/register",
             data={
@@ -147,7 +148,7 @@ class TestAuth:
         with client.application.app_context():
             invite = Invite.query.filter_by(email="test@test.com").first()
             assert invite is not None
-            assert not invite.is_used
+            assert invite.status == "pending"
 
         # Register the user
         client.get("/user/logout")  # Logout admin first
@@ -162,12 +163,12 @@ class TestAuth:
         )
         assert b"Registration successful" in response.data
 
-        # Verify user was created and invite was marked as used
+        # Verify user was created and invite was marked as accepted
         with client.application.app_context():
             user = User.query.filter_by(email="test@test.com").first()
             assert user is not None
             invite = Invite.query.filter_by(email="test@test.com").first()
-            assert invite.is_used
+            assert invite.status == "accepted"
 
         # Admin logs back in and removes the user
         login(client, "admin@test.com", "adminpass")
@@ -179,11 +180,11 @@ class TestAuth:
             user = User.query.filter_by(email="test@test.com").first()
             assert user is None
 
-        # Invite should still exist but be marked as used
+        # Invite should still exist but be marked as accepted
         with client.application.app_context():
             invite = Invite.query.filter_by(email="test@test.com").first()
             assert invite is not None
-            assert invite.is_used
+            assert invite.status == "accepted"
 
         # Reset the mock to track new calls
         mock_send_email.reset_mock()
@@ -197,14 +198,19 @@ class TestAuth:
         # Verify email was sent
         mock_send_email.assert_called_once()
 
-        # Verify invite was reset and can be used again
+        # Verify a new invite was created and can be used again
         with client.application.app_context():
-            invite = Invite.query.filter_by(email="test@test.com").first()
-            assert invite is not None
-            assert not invite.is_used  # Should be reset to False
-            assert not invite.is_canceled
-            assert invite.token is not None  # Should have a new token
-            assert invite.updated_at is not None  # Should have updated timestamp
+            invites = Invite.query.filter_by(email="test@test.com").all()
+            assert (
+                len(invites) == 2
+            )  # Should have 2 invites now (old accepted + new pending)
+            # Find the pending invite (should be the new one)
+            pending_invites = [inv for inv in invites if inv.status == "pending"]
+            accepted_invites = [inv for inv in invites if inv.status == "accepted"]
+            assert len(pending_invites) == 1  # Should have exactly 1 pending invite
+            assert len(accepted_invites) == 1  # Should have exactly 1 accepted invite
+            new_invite = pending_invites[0]
+            assert new_invite.token is not None  # Should have a token
 
         # User should be able to register again with the new invite
         client.get("/user/logout")  # Logout admin
@@ -213,7 +219,7 @@ class TestAuth:
             data={
                 "email": "test@test.com",
                 "password": "newpassword",
-                "token": invite.token,
+                "token": new_invite.token,
             },
             follow_redirects=True,
         )
@@ -260,7 +266,7 @@ class TestConfig:
 
         # Check it was saved
         with client.application.app_context():
-            config = Configuration.query.filter_by(name="My Test Config").first()
+            config = UserConfig.query.filter_by(name="My Test Config").first()
             assert config is not None
             user = User.query.filter_by(email="user@test.com").first()
             assert config.user_id == user.id
@@ -279,8 +285,14 @@ class TestConfig:
         # Create a config to delete
         with client.application.app_context():
             user = User.query.filter_by(email="user@test.com").one()
-            config = Configuration(
-                user_id=user.id, name="to-delete", data={"mid": "123"}
+            config = UserConfig(
+                user_id=user.id,
+                name="to-delete",
+                environment="sandbox",
+                base_url="https://test.com",
+                mid="123",
+                tid="456",
+                api_key="test-key",
             )
             db.session.add(config)
             db.session.commit()
@@ -294,7 +306,7 @@ class TestConfig:
         redirect_response = client.get(response.location)
         assert b"Configuration &#39;to-delete&#39; deleted." in redirect_response.data
         with client.application.app_context():
-            assert db.session.get(Configuration, config_id) is None
+            assert db.session.get(UserConfig, config_id) is None
 
     def test_user_cannot_delete_other_users_config(self, client):
         # Create two users and a config for the first one
@@ -304,7 +316,15 @@ class TestConfig:
             other_user.set_password("pass")
             db.session.add(other_user)
             db.session.commit()
-            config = Configuration(user_id=other_user.id, name="secret", data={})
+            config = UserConfig(
+                user_id=other_user.id,
+                name="secret",
+                environment="sandbox",
+                base_url="https://test.com",
+                mid="456",
+                tid="789",
+                api_key="secret-key",
+            )
             db.session.add(config)
             db.session.commit()
             config_id = config.id
@@ -365,7 +385,7 @@ class TestPostbacks:
         client.post("/postback", json={"test": "data"})
         with client.application.app_context():
             user = User.query.filter_by(email="user@test.com").first()
-            assert Postback.query.filter_by(user_id=user.id).count() == 1
+            assert UserPostback.query.filter_by(user_id=user.id).count() == 1
         response = client.get("/postbacks")
         assert b"data" in response.data
 
