@@ -1,5 +1,4 @@
 import re
-from decimal import Decimal, InvalidOperation
 from flask import current_app, flash, session
 import uuid
 
@@ -56,3 +55,25 @@ def validate_config():
         )
         return False
     return True
+
+
+def validate_url(url_str):
+    """Validate that the string is a valid HTTP/HTTPS URL"""
+    if not url_str:
+        return True, None  # Empty URL is allowed (will use default)
+
+    # Basic URL pattern validation
+    url_pattern = re.compile(
+        r"^https?://"  # http:// or https://
+        r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
+        r"localhost|"  # localhost...
+        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
+        r"(?::\d+)?"  # optional port
+        r"(?:/?|[/?]\S+)$",
+        re.IGNORECASE,
+    )
+
+    if not url_pattern.match(url_str):
+        return False, "Invalid URL format. Please use http:// or https://"
+
+    return True, None

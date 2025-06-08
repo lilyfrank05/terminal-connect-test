@@ -2,19 +2,68 @@ services:
   web:
     image: ghcr.io/lilyfrank05/terminal-connect-test:latest
     pull_policy: always
-    ports:
-      - "5001:5000"
-    volumes:
-      - ./data:/tmp
     environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - FLASK_APP=app:create_app
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - BREVO_API_KEY=${BREVO_API_KEY}
       - SECRET_KEY=${SECRET_KEY}
       - MID=${MID}
       - TID=${TID}
       - API_KEY=${API_KEY}
+      # Gunicorn Production Configuration
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-}
+      - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-sync}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-60}
+      - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-1000}
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data:/tmp
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5000/" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 40s
+
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

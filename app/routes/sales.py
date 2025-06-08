@@ -3,12 +3,20 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 from ..utils.api import make_api_request, process_intent
 from ..utils.helpers import generate_merchant_reference
 from ..utils.validation import validate_amount, validate_config
+from .user import login_required
 
 bp = Blueprint("sales", __name__)
 
 
 @bp.route("/sale", methods=["GET", "POST"])
+@login_required
 def sale():
+    # For both GET and POST, check for config first.
+    # Guests won't have a user_id, so their config is only in the session.
+    if "user_id" not in session and "MID" not in session:
+        flash("Please configure your settings first.", "warning")
+        return redirect(url_for("config.config"))
+
     if request.method == "POST":
         if not validate_config():
             return redirect(url_for("config.config"))
