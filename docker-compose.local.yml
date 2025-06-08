@@ -1,0 +1,71 @@
+services:
+  web:
+    build: .
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app:create_app
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@localhost.dev}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-dev-password-123}
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-for-local-development}
+      - MID=${MID:-}
+      - TID=${TID:-}
+      - API_KEY=${API_KEY:-}
+      - DEBUG=true
+      # Gunicorn Development Configuration (lighter load)
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
+      - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-sync}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
+      - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-0}
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data:/tmp
+      - .:/app # Mount source code for development
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
