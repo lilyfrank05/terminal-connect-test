@@ -166,5 +166,7 @@ def list_postbacks(user):
     else:
         # Guest user: get postbacks from file
         postbacks = load_guest_postbacks()
+        # Sort guest postbacks by received_at in descending order (newest first)
+        postbacks.sort(key=lambda x: x.get("received_at", ""), reverse=True)
 
     return render_template("postbacks.html", postbacks=postbacks)
