@@ -59,7 +59,14 @@ def config(user):
 
         # If postback URL is empty, use the default built-in endpoint
         if not postback_url:
-            postback_url = url_for("postbacks.postback", _external=True)
+            if "user_id" in session:
+                # User-specific postback URL for authenticated users
+                postback_url = url_for(
+                    "postbacks.postback", user_id=session["user_id"], _external=True
+                )
+            else:
+                # Generic postback URL for guests
+                postback_url = url_for("postbacks.postback", _external=True)
 
         config_data = {
             "environment": request.form.get("environment", "sandbox"),
@@ -87,7 +94,7 @@ def config(user):
                 user_id=session["user_id"],
                 name=config_name,
                 environment=config_data["environment"],
-                base_url=config_data.get("base_url", ""),
+                base_url=ENVIRONMENT_URLS[config_data["environment"]],
                 mid=config_data["mid"],
                 tid=config_data["tid"],
                 api_key=config_data["api_key"],
@@ -143,9 +150,16 @@ def load_config(user, config_id):
     session["MID"] = config.mid
     session["TID"] = config.tid
     session["API_KEY"] = config.api_key
-    session["POSTBACK_URL"] = config.postback_url or url_for(
-        "postbacks.postback", _external=True
-    )
+    if config.postback_url:
+        session["POSTBACK_URL"] = config.postback_url
+    else:
+        # Generate user-specific postback URL for authenticated users
+        if "user_id" in session:
+            session["POSTBACK_URL"] = url_for(
+                "postbacks.postback", user_id=session["user_id"], _external=True
+            )
+        else:
+            session["POSTBACK_URL"] = url_for("postbacks.postback", _external=True)
     flash(f"Loaded configuration '{config.name}'.", "info")
     return redirect(url_for("config.config"))
 
@@ -191,7 +205,14 @@ def update_config(user, config_id):
             return redirect(url_for("config.config"))
 
     if not postback_url:
-        postback_url = url_for("postbacks.postback", _external=True)
+        if "user_id" in session:
+            # User-specific postback URL for authenticated users
+            postback_url = url_for(
+                "postbacks.postback", user_id=session["user_id"], _external=True
+            )
+        else:
+            # Generic postback URL for guests
+            postback_url = url_for("postbacks.postback", _external=True)
 
     # Update config fields
     config.name = config_name
