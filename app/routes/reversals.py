@@ -16,7 +16,7 @@ def get_postback_url():
         # Check if user is authenticated for user-specific postback
         if session.get("user_id"):
             postback_url = url_for(
-                "postbacks.user_postback", user_id=session["user_id"], _external=True
+                "postbacks.postback", user_id=session["user_id"], _external=True
             )
         else:
             postback_url = url_for("postbacks.postback", _external=True)
