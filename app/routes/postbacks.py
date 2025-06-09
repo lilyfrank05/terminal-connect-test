@@ -68,18 +68,25 @@ def mask_headers(headers):
 
 
 @bp.route("/postback", methods=["POST"])
+@bp.route("/postback/<int:user_id>", methods=["POST"])
 @optional_jwt_user
-def postback(user):
+def postback(user=None, user_id=None):
     """Handle incoming postback messages from Terminal Connect"""
     postback_data = request.get_json()
 
-    # If a logged-in user is making this request (e.g., via a saved config),
-    # associate postback with them. Otherwise, handle as guest.
-    user_id = None
-    if user:  # JWT authenticated user
+    # Determine user_id from multiple sources (priority order):
+    # 1. URL parameter (for user-specific postback URLs)
+    # 2. JWT authenticated user
+    # 3. Session authenticated user
+    if user_id:
+        # URL parameter takes precedence (user-specific postback URL)
+        pass
+    elif user:  # JWT authenticated user
         user_id = user.id
     elif "user_id" in session:  # Session authenticated user
         user_id = session.get("user_id")
+    else:
+        user_id = None
 
     if user_id:
         # Logged-in user: save to database
