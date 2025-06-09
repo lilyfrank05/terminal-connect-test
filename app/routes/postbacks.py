@@ -68,13 +68,18 @@ def mask_headers(headers):
 
 
 @bp.route("/postback", methods=["POST"])
-def postback():
+@optional_jwt_user
+def postback(user):
     """Handle incoming postback messages from Terminal Connect"""
     postback_data = request.get_json()
 
     # If a logged-in user is making this request (e.g., via a saved config),
     # associate postback with them. Otherwise, handle as guest.
-    user_id = session.get("user_id")
+    user_id = None
+    if user:  # JWT authenticated user
+        user_id = user.id
+    elif "user_id" in session:  # Session authenticated user
+        user_id = session.get("user_id")
 
     if user_id:
         # Logged-in user: save to database
@@ -126,10 +131,18 @@ def postback():
 def list_postbacks(user):
     """Display the list of received postbacks"""
     postbacks = []
-    if "user_id" in session:
-        # Logged-in user: get from DB
+
+    # Check if user is authenticated (either via session or JWT)
+    user_id = None
+    if user:  # JWT authenticated user
+        user_id = user.id
+    elif "user_id" in session:  # Session authenticated user
+        user_id = session["user_id"]
+
+    if user_id:
+        # Logged-in user: get postbacks from database
         user_postbacks = (
-            UserPostback.query.filter_by(user_id=session["user_id"])
+            UserPostback.query.filter_by(user_id=user_id)
             .order_by(UserPostback.created_at.desc())
             .all()
         )
@@ -144,7 +157,7 @@ def list_postbacks(user):
                 }
             )
     else:
-        # Guest user: get from file
+        # Guest user: get postbacks from file
         postbacks = load_guest_postbacks()
 
     return render_template("postbacks.html", postbacks=postbacks)
