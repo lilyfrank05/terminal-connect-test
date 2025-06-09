@@ -28,9 +28,15 @@ def make_api_request(endpoint, method="POST", payload=None):
     defaults = current_app.config["DEFAULT_CONFIG"]
     api_key = session.get("API_KEY", defaults["API_KEY"])
     base_url = session.get("BASE_URL", defaults["BASE_URL"])
-    postback_url = session.get("POSTBACK_URL") or url_for(
-        "postbacks.postback", _external=True
-    )
+    postback_url = session.get("POSTBACK_URL")
+    if not postback_url:
+        # Generate default postback URL based on user authentication
+        if session.get("user_id"):
+            postback_url = url_for(
+                "postbacks.postback", user_id=session["user_id"], _external=True
+            )
+        else:
+            postback_url = url_for("postbacks.postback", _external=True)
 
     headers = {"Content-Type": "application/json", "x-api-key": api_key}
 
