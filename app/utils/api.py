@@ -33,7 +33,7 @@ def make_api_request(endpoint, method="POST", payload=None):
         # Generate default postback URL based on user authentication
         if session.get("user_id"):
             postback_url = url_for(
-                "postbacks.postback", user_id=session["user_id"], _external=True
+                "postbacks.user_postback", user_id=session["user_id"], _external=True
             )
         else:
             postback_url = url_for("postbacks.postback", _external=True)
