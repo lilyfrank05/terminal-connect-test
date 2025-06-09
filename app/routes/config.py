@@ -122,9 +122,17 @@ def config(user):
 
     # Get configuration from session with defaults from environment
     defaults = current_app.config["DEFAULT_CONFIG"]
-    postback_url = session.get("POSTBACK_URL") or url_for(
-        "postbacks.postback", _external=True
-    )
+    postback_url = session.get("POSTBACK_URL")
+    if not postback_url:
+        # Generate appropriate default postback URL based on authentication
+        if "user_id" in session:
+            # User-specific postback URL for authenticated users
+            postback_url = url_for(
+                "postbacks.postback", user_id=session["user_id"], _external=True
+            )
+        else:
+            # Generic postback URL for guests
+            postback_url = url_for("postbacks.postback", _external=True)
     return render_template(
         "config.html",
         environment=session.get("ENVIRONMENT", defaults["ENVIRONMENT"]),
