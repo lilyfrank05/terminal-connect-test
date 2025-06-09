@@ -136,8 +136,14 @@ def postback(user=None, user_id=None):
 @bp.route("/postbacks", methods=["GET"])
 @optional_jwt_user
 def list_postbacks(user):
-    """Display the list of received postbacks"""
-    postbacks = []
+    """Display the list of received postbacks with pagination"""
+    # Get pagination parameters
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+
+    # Validate per_page options
+    if per_page not in [20, 50, 100]:
+        per_page = 20
 
     # Check if user is authenticated (either via session or JWT)
     user_id = None
@@ -147,14 +153,16 @@ def list_postbacks(user):
         user_id = session["user_id"]
 
     if user_id:
-        # Logged-in user: get postbacks from database
-        user_postbacks = (
+        # Logged-in user: get postbacks from database with pagination
+        pagination = (
             UserPostback.query.filter_by(user_id=user_id)
             .order_by(UserPostback.created_at.desc())
-            .all()
+            .paginate(page=page, per_page=per_page, error_out=False)
         )
+
         # Format for template
-        for pb in user_postbacks:
+        postbacks = []
+        for pb in pagination.items:
             pb_data = json.loads(pb.postback_data)
             postbacks.append(
                 {
@@ -164,9 +172,30 @@ def list_postbacks(user):
                 }
             )
     else:
-        # Guest user: get postbacks from file
-        postbacks = load_guest_postbacks()
+        # Guest user: get postbacks from file with manual pagination
+        all_postbacks = load_guest_postbacks()
         # Sort guest postbacks by received_at in descending order (newest first)
-        postbacks.sort(key=lambda x: x.get("received_at", ""), reverse=True)
+        all_postbacks.sort(key=lambda x: x.get("received_at", ""), reverse=True)
 
-    return render_template("postbacks.html", postbacks=postbacks)
+        # Manual pagination for file-based postbacks
+        total = len(all_postbacks)
+        start = (page - 1) * per_page
+        end = start + per_page
+        postbacks = all_postbacks[start:end]
+
+        # Create a simple pagination object for template consistency
+        class SimplePagination:
+            def __init__(self, page, per_page, total):
+                self.page = page
+                self.per_page = per_page
+                self.total = total
+                self.pages = (total + per_page - 1) // per_page
+                self.has_prev = page > 1
+                self.has_next = page < self.pages
+                self.prev_num = page - 1 if self.has_prev else None
+                self.next_num = page + 1 if self.has_next else None
+                self.items = postbacks
+
+        pagination = SimplePagination(page, per_page, total)
+
+    return render_template("postbacks.html", postbacks=postbacks, pagination=pagination)
