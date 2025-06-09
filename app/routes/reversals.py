@@ -9,6 +9,20 @@ from .user import login_required
 bp = Blueprint("reversals", __name__)
 
 
+def get_postback_url():
+    """Get postback URL from session or generate appropriate one"""
+    postback_url = session.get("POSTBACK_URL")
+    if not postback_url:
+        # Check if user is authenticated for user-specific postback
+        if session.get("user_id"):
+            postback_url = url_for(
+                "postbacks.user_postback", user_id=session["user_id"], _external=True
+            )
+        else:
+            postback_url = url_for("postbacks.postback", _external=True)
+    return postback_url
+
+
 @bp.route("/reversal", methods=["GET", "POST"])
 @login_required
 def reversal():
@@ -39,7 +53,7 @@ def reversal():
         payload = {
             "merchantReference": merchant_reference,
             "parentIntentId": parent_intent_id,
-            "postbackUrl": session["POSTBACK_URL"],
+            "postbackUrl": get_postback_url(),
         }
 
         # If via_pinpad is not checked, get transaction details first
