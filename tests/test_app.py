@@ -658,7 +658,7 @@ class TestReversals:
             )
             assert response.status_code == 302
             redirect_response = client.get(response.location)
-            assert b"Successfully processed Intent ID:" in redirect_response.data
+            assert b"Successfully created reversal Intent ID:" in redirect_response.data
 
     def test_reversal_validation_errors(self, client, mock_config):
         guest_login(client)
