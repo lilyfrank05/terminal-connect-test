@@ -2,7 +2,7 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 import json
 
 from ..utils.api import make_api_request, process_intent
-from ..utils.helpers import generate_merchant_reference
+from ..utils.helpers import generate_merchant_reference, is_charge_anywhere_tid
 from ..utils.validation import is_valid_uuid, validate_config
 from .user import login_required
 
@@ -23,9 +23,14 @@ def get_postback_url():
     return postback_url
 
 
+
 @bp.route("/reversal", methods=["GET", "POST"])
 @login_required
 def reversal():
+    # Check if current TID is a Charge Anywhere TID
+    current_tid = session.get("TID", "")
+    show_pinpad_options = is_charge_anywhere_tid(current_tid)
+    
     if request.method == "POST":
         if not validate_config():
             return redirect(url_for("config.config"))
@@ -45,8 +50,8 @@ def reversal():
             flash("Original Sale Reference must be a valid UUID v4", "danger")
             return redirect(url_for("reversals.reversal"))
 
-        # Check if via_pinpad checkbox is checked
-        via_pinpad = "via_pinpad" in request.form
+        # Check if via_pinpad checkbox is checked (only relevant for Charge Anywhere TIDs)
+        via_pinpad = show_pinpad_options and "via_pinpad" in request.form
 
         # First API call to create reversal intent
         endpoint = f"/merchant/{session['MID']}/intent/reversal"
@@ -56,8 +61,8 @@ def reversal():
             "postbackUrl": get_postback_url(),
         }
 
-        # If via_pinpad is not checked, get transaction details first
-        if not via_pinpad:
+        # Only handle non-pinpad logic if pinpad options are shown and via_pinpad is not checked
+        if show_pinpad_options and not via_pinpad:
             details_endpoint = f"/merchant/{session['MID']}/intent/{parent_intent_id}"
             details_data, details_error = make_api_request(
                 details_endpoint, method="GET"
@@ -95,8 +100,12 @@ def reversal():
         # Second API call to process the intent
         intent_id = response_data["intentId"]
 
-        # Only process the intent if via_pinpad is true
-        if via_pinpad:
+        # Process the intent based on conditions:
+        # - If no pinpad options are shown (non-WP TID), always process
+        # - If pinpad options are shown and via_pinpad is true, process
+        should_process = not show_pinpad_options or via_pinpad
+        
+        if should_process:
             _, process_error = process_intent(intent_id)
             if process_error:
                 flash(
@@ -111,5 +120,7 @@ def reversal():
         return redirect(url_for("reversals.reversal"))
 
     return render_template(
-        "reversal.html", default_merchant_reference=generate_merchant_reference()
+        "reversal.html", 
+        default_merchant_reference=generate_merchant_reference(),
+        show_pinpad_options=show_pinpad_options
     )
