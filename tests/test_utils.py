@@ -10,6 +10,7 @@ def test_validate_amount():
     assert validate_amount("10.00") == (True, None)
     assert validate_amount("0.01") == (True, None)
     assert validate_amount("999999.99") == (True, None)
+    assert validate_amount("252") == (True, None)
 
     # Test invalid amounts and error messages
     assert validate_amount("0") == (False, "Amount must be greater than zero")
