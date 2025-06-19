@@ -34,7 +34,7 @@ def index(user):
 def config(user):
     user_configs = []
     if "user_id" in session:
-        user_configs = UserConfig.query.filter_by(user_id=session["user_id"]).all()
+        user_configs = UserConfig.query.filter_by(user_id=session["user_id"]).order_by(UserConfig.display_order, UserConfig.created_at).all()
 
     if request.method == "POST":
         # Validate required fields
@@ -90,6 +90,9 @@ def config(user):
                 flash("Configuration Name is required.", "danger")
                 return redirect(url_for("config.config"))
 
+            # Get the next display order
+            max_order = db.session.query(db.func.max(UserConfig.display_order)).filter_by(user_id=session["user_id"]).scalar() or 0
+            
             new_config = UserConfig(
                 user_id=session["user_id"],
                 name=config_name,
@@ -99,6 +102,7 @@ def config(user):
                 tid=config_data["tid"],
                 api_key=config_data["api_key"],
                 postback_url=config_data["postback_url"],
+                display_order=max_order + 1,
             )
             db.session.add(new_config)
             db.session.commit()
@@ -239,3 +243,39 @@ def update_config(user, config_id):
 
     flash(f"Configuration '{config.name}' updated.", "success")
     return redirect(url_for("config.config"))
+
+
+@bp.route("/config/reorder", methods=["POST"])
+@optional_jwt_user
+def reorder_configs(user):
+    """Reorder saved configurations."""
+    if "user_id" not in session:
+        return "Unauthorized", 403
+    
+    try:
+        # Get the new order from the request
+        config_ids = request.json.get("config_ids", [])
+        
+        if not config_ids:
+            return {"success": False, "error": "No configuration IDs provided"}, 400
+        
+        # Verify all configs belong to the user
+        user_configs = UserConfig.query.filter(
+            UserConfig.id.in_(config_ids),
+            UserConfig.user_id == session["user_id"]
+        ).all()
+        
+        if len(user_configs) != len(config_ids):
+            return {"success": False, "error": "Invalid configuration IDs"}, 400
+        
+        # Update display order for each config
+        for index, config_id in enumerate(config_ids):
+            config = next(c for c in user_configs if c.id == config_id)
+            config.display_order = index
+        
+        db.session.commit()
+        return {"success": True}
+        
+    except Exception as e:
+        db.session.rollback()
+        return {"success": False, "error": str(e)}, 500

@@ -47,4 +47,33 @@ body {
     background-color: #f8f9fa;
     border-bottom: 1px solid rgba(0,0,0,.125);
     padding: 1rem;
+}
+
+/* Drag and drop styles for config reordering */
+.drag-handle {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+}
+
+.list-group-item.dragging {
+    transform: rotate(2deg);
+    z-index: 1000;
+    border: 2px dashed #007bff;
+}
+
+.list-group-item.drag-over {
+    border-top: 3px solid #007bff;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.list-group-item[draggable="true"] {
+    cursor: grab;
+}
+
+.list-group-item[draggable="true"]:active {
+    cursor: grabbing;
 } 

@@ -93,14 +93,22 @@
         <div class="card">
             <div class="card-header">
                 <h4 class="mb-0"><i class="bi bi-archive me-2"></i>Saved Configurations</h4>
+                {% if user_configs|length > 1 %}
+                <small class="text-muted">Drag to reorder</small>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if user_configs %}
-                    <ul class="list-group">
+                    <ul class="list-group" id="config-list">
                         {% for conf in user_configs %}
-                        <li class="list-group-item {% if session.active_config_id == conf.id %}active{% endif %}">
+                        <li class="list-group-item {% if session.active_config_id == conf.id %}active{% endif %}" data-config-id="{{ conf.id }}">
                             <div class="d-flex justify-content-between align-items-center">
-                                <strong class="text-break">{{ conf.name }}</strong>
+                                {% if user_configs|length > 1 %}
+                                <div class="drag-handle me-2" style="cursor: grab;">
+                                    <i class="bi bi-grip-vertical text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <strong class="text-break flex-grow-1">{{ conf.name }}</strong>
                                 <div>
                                     <a href="{{ url_for('config.load_config', config_id=conf.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Load">
                                         <i class="bi bi-arrow-down-circle"></i>
@@ -212,5 +220,96 @@ function resetToDefault() {
     const defaultUrl = window.location.origin + '/postback';
     postbackInput.value = defaultUrl;
 }
+
+// Drag and drop functionality for config reordering
+{% if user_configs|length > 1 %}
+let draggedElement = null;
+let draggedOver = null;
+
+const configList = document.getElementById('config-list');
+const configs = configList.querySelectorAll('li[data-config-id]');
+
+configs.forEach(config => {
+    config.draggable = true;
+    
+    config.addEventListener('dragstart', function(e) {
+        draggedElement = this;
+        this.style.opacity = '0.5';
+        this.classList.add('dragging');
+    });
+    
+    config.addEventListener('dragend', function(e) {
+        this.style.opacity = '';
+        this.classList.remove('dragging');
+        
+        // Reset all dragover styles
+        configs.forEach(c => c.classList.remove('drag-over'));
+        
+        draggedElement = null;
+        draggedOver = null;
+    });
+    
+    config.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        
+        if (draggedElement && draggedElement !== this) {
+            draggedOver = this;
+            this.classList.add('drag-over');
+        }
+    });
+    
+    config.addEventListener('dragleave', function(e) {
+        this.classList.remove('drag-over');
+    });
+    
+    config.addEventListener('drop', function(e) {
+        e.preventDefault();
+        
+        if (draggedElement && draggedElement !== this) {
+            // Determine if we should insert before or after
+            const rect = this.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            const insertAfter = e.clientY > midpoint;
+            
+            if (insertAfter) {
+                this.parentNode.insertBefore(draggedElement, this.nextSibling);
+            } else {
+                this.parentNode.insertBefore(draggedElement, this);
+            }
+            
+            // Save the new order
+            saveConfigOrder();
+        }
+        
+        this.classList.remove('drag-over');
+    });
+});
+
+function saveConfigOrder() {
+    const configIds = Array.from(configList.querySelectorAll('li[data-config-id]'))
+        .map(li => parseInt(li.dataset.configId));
+    
+    fetch('/config/reorder', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ config_ids: configIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('Failed to save config order:', data.error);
+            // Optionally reload the page to restore original order
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Error saving config order:', error);
+        // Optionally reload the page to restore original order
+        location.reload();
+    });
+}
+{% endif %}
 </script>
 {% endblock %}
