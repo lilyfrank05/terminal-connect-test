@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from ..utils.api import make_api_request, process_intent
-from ..utils.helpers import generate_merchant_reference
+from ..utils.helpers import generate_merchant_reference, is_charge_anywhere_tid
 from ..utils.validation import validate_amount, validate_config, is_valid_uuid
 from .user import login_required
 
@@ -21,6 +21,7 @@ def get_postback_url():
         else:
             postback_url = url_for("postbacks.postback", _external=True)
     return postback_url
+
 
 
 @bp.route("/unlinked-refund", methods=["GET", "POST"])
@@ -79,6 +80,10 @@ def unlinked_refund():
 @bp.route("/linked-refund", methods=["GET", "POST"])
 @login_required
 def linked_refund():
+    # Check if current TID is a Charge Anywhere TID
+    current_tid = session.get("TID", "")
+    show_pinpad_options = is_charge_anywhere_tid(current_tid)
+    
     if request.method == "POST":
         if not validate_config():
             return redirect(url_for("config.config"))
@@ -109,8 +114,8 @@ def linked_refund():
             flash("Original Sale Reference must be a valid UUID v4", "danger")
             return redirect(url_for("refunds.linked_refund"))
 
-        # Check if via_pinpad checkbox is checked
-        via_pinpad = "via_pinpad" in request.form
+        # Check if via_pinpad option is selected (only relevant for Charge Anywhere TIDs)
+        via_pinpad = show_pinpad_options and request.form.get("via_pinpad") == "yes"
 
         # First API call to create refund intent
         endpoint = f"/merchant/{session['MID']}/intent/refund"
@@ -121,8 +126,8 @@ def linked_refund():
             "postbackUrl": get_postback_url(),
         }
 
-        # If viaPinpad is not true, get transaction details first
-        if not via_pinpad:
+        # Only handle non-pinpad logic if pinpad options are shown and via_pinpad is not selected
+        if show_pinpad_options and not via_pinpad:
             # Get transaction details for the parent intent
             details_endpoint = f"/merchant/{session['MID']}/intent/{parent_intent_id}"
             details_data, details_error = make_api_request(
@@ -166,8 +171,12 @@ def linked_refund():
         # Get the intent ID
         intent_id = response_data["intentId"]
 
-        # Only process the intent if via_pinpad is true
-        if via_pinpad:
+        # Process the intent based on conditions:
+        # - If no pinpad options are shown (non-WP TID), always process
+        # - If pinpad options are shown and via_pinpad is true, process
+        should_process = not show_pinpad_options or via_pinpad
+        
+        if should_process:
             _, process_error = process_intent(intent_id)
             if process_error:
                 flash(
@@ -182,5 +191,7 @@ def linked_refund():
         return redirect(url_for("refunds.linked_refund"))
 
     return render_template(
-        "linked-refund.html", default_merchant_reference=generate_merchant_reference()
+        "linked-refund.html", 
+        default_merchant_reference=generate_merchant_reference(),
+        show_pinpad_options=show_pinpad_options
     )

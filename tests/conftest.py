@@ -73,6 +73,18 @@ def mock_config():
 
 
 @pytest.fixture
+def mock_config_wp():
+    """Mock configuration with WP TID for testing Charge Anywhere functionality."""
+    return {
+        "environment": "sandbox",
+        "mid": "test-mid",
+        "tid": "WP123456",
+        "api_key": "test-api-key", 
+        "postback_url": "http://localhost:5001/postback",
+    }
+
+
+@pytest.fixture
 def mock_intent_response():
     """Mock API response for intent creation."""
     return {"intentId": "123e4567-e89b-12d3-a456-426614174000", "status": "created"}
