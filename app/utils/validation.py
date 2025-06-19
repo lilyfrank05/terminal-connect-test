@@ -24,7 +24,8 @@ def validate_amount(amount_str):
         if amount > 999999.99:
             return False, "Amount must be less than 1,000,000"
         # Check if amount has more than 2 decimal places
-        if len(amount_str.split(".")[-1]) > 2:
+        decimal_parts = amount_str.split(".")
+        if len(decimal_parts) == 2 and len(decimal_parts[1]) > 2:
             return False, "Amount must have at most 2 decimal places"
         return True, None
     except ValueError:
