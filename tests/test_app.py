@@ -527,26 +527,23 @@ class TestRefunds:
             assert b"Successfully processed Intent ID:" in redirect_response.data
 
     def test_linked_refund_non_pinpad_success(
-        self, client, mock_config, mock_intent_response
+        self, client, mock_config, mock_intent_response, mock_process_response
     ):
+        """Test that non-WP TID linked refunds always process (no longer supports non-pinpad for non-WP TIDs)"""
         guest_login(client)
         client.post("/config", data=mock_config)
         parent_intent_id = "a1b2c3d4-e5f6-4890-a234-567890abcdef"
 
         with requests_mock.Mocker() as m:
-            # Mock getting transaction details
-            m.get(
-                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{parent_intent_id}",
-                json={
-                    "transactionDetails": {
-                        "externalData": '{"gatewayReferenceNumber": "123", "originalAmount": 1000, "originalApprovalCode": "ABC", "originalTransactionType": "SALE", "hostMerchantId": "ext-mid", "hostTerminalId": "ext-tid"}'
-                    }
-                },
-            )
             # Mock creating refund intent
             m.post(
                 "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/refund",
                 json=mock_intent_response,
+            )
+            # Mock processing the intent (now always called for non-WP TIDs)
+            m.post(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
+                json=mock_process_response,
             )
 
             response = client.post(
@@ -559,7 +556,7 @@ class TestRefunds:
             )
             assert response.status_code == 302
             redirect_response = client.get(response.location)
-            assert b"Successfully created refund Intent ID:" in redirect_response.data
+            assert b"Successfully processed Intent ID:" in redirect_response.data
 
     def test_linked_refund_validation_errors(self, client, mock_config):
         guest_login(client)
@@ -622,31 +619,23 @@ class TestReversals:
             assert b"Successfully processed Intent ID:" in redirect_response.data
 
     def test_reversal_non_pinpad_success(
-        self, client, mock_config, mock_intent_response
+        self, client, mock_config, mock_intent_response, mock_process_response
     ):
+        """Test that non-WP TID reversals always process (no longer supports non-pinpad for non-WP TIDs)"""
         guest_login(client)
         client.post("/config", data=mock_config)
         parent_intent_id = "a1b2c3d4-e5f6-4890-a234-567890abcdef"
 
         with requests_mock.Mocker() as m:
-            # Mock getting transaction details
-            m.get(
-                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{parent_intent_id}",
-                json={
-                    "transactionDetails": {
-                        "externalData": '{"gatewayReferenceNumber": "123", "originalAmount": 1000, "originalApprovalCode": "ABC", "originalTransactionType": "SALE", "hostMerchantId": "ext-mid", "hostTerminalId": "ext-tid"}'
-                    }
-                },
-            )
             # Mock creating reversal intent
             m.post(
                 "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/reversal",
                 json=mock_intent_response,
             )
-            # Mock processing the intent (which is not called for non-pinpad, but good to have)
+            # Mock processing the intent (now always called for non-WP TIDs)
             m.post(
                 f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
-                json={},
+                json=mock_process_response,
             )
 
             response = client.post(
@@ -658,7 +647,7 @@ class TestReversals:
             )
             assert response.status_code == 302
             redirect_response = client.get(response.location)
-            assert b"Successfully created reversal Intent ID:" in redirect_response.data
+            assert b"Successfully processed Intent ID:" in redirect_response.data
 
     def test_reversal_validation_errors(self, client, mock_config):
         guest_login(client)
@@ -679,3 +668,222 @@ class TestReversals:
             follow_redirects=True,
         )
         assert b"Original Sale Reference is required" in response.data
+
+
+class TestChargeAnywhereTID:
+    """Tests for Charge Anywhere TID functionality (TIDs starting with WP)"""
+    
+    def test_wp_tid_shows_pinpad_options_linked_refund(self, client, mock_config_wp):
+        """Test that WP TIDs show pinpad options in linked refund form"""
+        guest_login(client)
+        client.post("/config", data=mock_config_wp)
+        response = client.get("/linked-refund")
+        assert response.status_code == 200
+        assert b"Process via PINpad" in response.data
+        assert b"via_pinpad" in response.data
+
+    def test_wp_tid_shows_pinpad_options_reversal(self, client, mock_config_wp):
+        """Test that WP TIDs show pinpad options in reversal form"""
+        guest_login(client)
+        client.post("/config", data=mock_config_wp)
+        response = client.get("/reversal")
+        assert response.status_code == 200
+        assert b"Process via PINpad" in response.data
+        assert b"via_pinpad" in response.data
+
+    def test_non_wp_tid_hides_pinpad_options_linked_refund(self, client, mock_config):
+        """Test that non-WP TIDs hide pinpad options in linked refund form"""
+        guest_login(client)
+        client.post("/config", data=mock_config)
+        response = client.get("/linked-refund")
+        assert response.status_code == 200
+        assert b"Process via PINpad" not in response.data
+
+    def test_non_wp_tid_hides_pinpad_options_reversal(self, client, mock_config):
+        """Test that non-WP TIDs hide pinpad options in reversal form"""
+        guest_login(client)
+        client.post("/config", data=mock_config)
+        response = client.get("/reversal")
+        assert response.status_code == 200
+        assert b"Process via PINpad" not in response.data
+        assert b'type="checkbox"' not in response.data
+
+    def test_wp_tid_linked_refund_via_pinpad_yes(
+        self, client, mock_config_wp, mock_intent_response, mock_process_response
+    ):
+        """Test WP TID linked refund with via_pinpad=yes processes correctly"""
+        guest_login(client)
+        client.post("/config", data=mock_config_wp)
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/refund",
+                json=mock_intent_response,
+            )
+            m.post(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
+                json=mock_process_response,
+            )
+            response = client.post(
+                "/linked-refund",
+                data={
+                    "amount": "10.00",
+                    "merchant_reference": "test-ref-wp-pinpad",
+                    "parent_intent_id": "a1b2c3d4-e5f6-4890-a234-567890abcdef",
+                    "via_pinpad": "yes",
+                },
+            )
+            assert response.status_code == 302
+            redirect_response = client.get(response.location)
+            assert b"Successfully processed Intent ID:" in redirect_response.data
+
+    def test_wp_tid_linked_refund_via_pinpad_no(
+        self, client, mock_config_wp, mock_intent_response
+    ):
+        """Test WP TID linked refund with via_pinpad=no creates intent without processing"""
+        guest_login(client)
+        client.post("/config", data=mock_config_wp)
+        parent_intent_id = "a1b2c3d4-e5f6-4890-a234-567890abcdef"
+
+        with requests_mock.Mocker() as m:
+            # Mock getting transaction details
+            m.get(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{parent_intent_id}",
+                json={
+                    "transactionDetails": {
+                        "externalData": '{"gatewayReferenceNumber": "123", "originalAmount": 1000, "originalApprovalCode": "ABC", "originalTransactionType": "SALE", "hostMerchantId": "ext-mid", "hostTerminalId": "ext-tid"}'
+                    }
+                },
+            )
+            # Mock creating refund intent
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/refund",
+                json=mock_intent_response,
+            )
+
+            response = client.post(
+                "/linked-refund",
+                data={
+                    "amount": "10.00",
+                    "merchant_reference": "test-ref-wp-no-pinpad",
+                    "parent_intent_id": parent_intent_id,
+                    "via_pinpad": "no",
+                },
+            )
+            assert response.status_code == 302
+            redirect_response = client.get(response.location)
+            assert b"Successfully created refund Intent ID:" in redirect_response.data
+
+    def test_wp_tid_reversal_via_pinpad_checked(
+        self, client, mock_config_wp, mock_intent_response, mock_process_response
+    ):
+        """Test WP TID reversal with via_pinpad checked processes correctly"""
+        guest_login(client)
+        client.post("/config", data=mock_config_wp)
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/reversal",
+                json=mock_intent_response,
+            )
+            m.post(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
+                json=mock_process_response,
+            )
+            response = client.post(
+                "/reversal",
+                data={
+                    "merchant_reference": "test-ref-wp-reversal",
+                    "parent_intent_id": "a1b2c3d4-e5f6-4890-a234-567890abcdef",
+                    "via_pinpad": "yes",
+                },
+            )
+            assert response.status_code == 302
+            redirect_response = client.get(response.location)
+            assert b"Successfully processed Intent ID:" in redirect_response.data
+
+    def test_wp_tid_reversal_via_pinpad_unchecked(
+        self, client, mock_config_wp, mock_intent_response
+    ):
+        """Test WP TID reversal with via_pinpad unchecked creates intent without processing"""
+        guest_login(client)
+        client.post("/config", data=mock_config_wp)
+        parent_intent_id = "a1b2c3d4-e5f6-4890-a234-567890abcdef"
+
+        with requests_mock.Mocker() as m:
+            # Mock getting transaction details
+            m.get(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{parent_intent_id}",
+                json={
+                    "transactionDetails": {
+                        "externalData": '{"gatewayReferenceNumber": "123", "originalAmount": 1000, "originalApprovalCode": "ABC", "originalTransactionType": "SALE", "hostMerchantId": "ext-mid", "hostTerminalId": "ext-tid"}'
+                    }
+                },
+            )
+            # Mock creating reversal intent
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/reversal",
+                json=mock_intent_response,
+            )
+
+            response = client.post(
+                "/reversal",
+                data={
+                    "merchant_reference": "test-ref-wp-no-pinpad",
+                    "parent_intent_id": parent_intent_id,
+                },
+            )
+            assert response.status_code == 302
+            redirect_response = client.get(response.location)
+            assert b"Successfully created reversal Intent ID:" in redirect_response.data
+
+    def test_non_wp_tid_linked_refund_always_processes(
+        self, client, mock_config, mock_intent_response, mock_process_response
+    ):
+        """Test that non-WP TID linked refunds always process regardless of form data"""
+        guest_login(client)
+        client.post("/config", data=mock_config)
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/refund",
+                json=mock_intent_response,
+            )
+            m.post(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
+                json=mock_process_response,
+            )
+            response = client.post(
+                "/linked-refund",
+                data={
+                    "amount": "10.00",
+                    "merchant_reference": "test-ref-non-wp",
+                    "parent_intent_id": "a1b2c3d4-e5f6-4890-a234-567890abcdef",
+                },
+            )
+            assert response.status_code == 302
+            redirect_response = client.get(response.location)
+            assert b"Successfully processed Intent ID:" in redirect_response.data
+
+    def test_non_wp_tid_reversal_always_processes(
+        self, client, mock_config, mock_intent_response, mock_process_response
+    ):
+        """Test that non-WP TID reversals always process regardless of form data"""
+        guest_login(client)
+        client.post("/config", data=mock_config)
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/reversal",
+                json=mock_intent_response,
+            )
+            m.post(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
+                json=mock_process_response,
+            )
+            response = client.post(
+                "/reversal",
+                data={
+                    "merchant_reference": "test-ref-non-wp",
+                    "parent_intent_id": "a1b2c3d4-e5f6-4890-a234-567890abcdef",
+                },
+            )
+            assert response.status_code == 302
+            redirect_response = client.get(response.location)
+            assert b"Successfully processed Intent ID:" in redirect_response.data

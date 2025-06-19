@@ -15,14 +15,16 @@
                         <label for="amount" class="form-label">Amount</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
-                            <input type="text" class="form-control" id="amount" name="amount" required>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0.01"
+                                required>
                         </div>
                     </div>
                     <div class="mb-4">
                         <label for="merchant_reference" class="form-label">Merchant Reference</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-tag"></i></span>
-                            <input type="text" class="form-control" id="merchant_reference" name="merchant_reference" value="{{ default_merchant_reference }}" required>
+                            <input type="text" class="form-control" id="merchant_reference" name="merchant_reference"
+                                value="{{ default_merchant_reference }}" required>
                         </div>
                     </div>
                     <div class="d-grid">
@@ -35,4 +37,4 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}
