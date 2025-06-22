@@ -116,29 +116,69 @@ def apply_migrations():
         print("✓ Migrations applied successfully")
         return True
     else:
-        print("Migration failed, attempting fallback...")
+        print("Migration failed, checking if database needs initialization...")
 
-        # Fallback: Create tables directly
+        # Check if this is a completely new database or existing one
         try:
             from app import create_app, db
+            from sqlalchemy import text
 
             app = create_app()
             with app.app_context():
-                print("Creating database tables directly...")
-                db.create_all()
-                print("✓ Database tables created")
-
-                # Mark current state as migrated
-                print("Marking current state as up to date...")
-                if run_command("flask db stamp head", "Mark as up to date"):
-                    print("✓ Database marked as up to date")
-                    return True
+                # Check if any tables exist
+                result = db.session.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+                    if db.engine.dialect.name == 'postgresql' 
+                    else "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+                ))
+                table_count = result.scalar()
+                
+                if table_count == 0:
+                    # Completely new database - create all tables and mark as head
+                    print("Empty database detected, creating all tables...")
+                    db.create_all()
+                    print("✓ Database tables created")
+                    
+                    if run_command("flask db stamp head", "Mark as up to date"):
+                        print("✓ Database marked as up to date")
+                        return True
+                    else:
+                        print("✗ Failed to mark database as up to date")
+                        return False
                 else:
-                    print("✗ Failed to mark database as up to date")
-                    return False
+                    # Existing database - try to identify current state and apply missing migrations
+                    print(f"Existing database with {table_count} tables detected")
+                    print("Attempting to identify current migration state...")
+                    
+                    # Try to apply migrations one by one, ignoring errors for existing objects
+                    print("Attempting individual migration steps...")
+                    
+                    # First, try to initialize migration tracking if it doesn't exist
+                    run_command("flask db stamp 1646a6a066a5", "Mark initial migration", ignore_errors=True)
+                    
+                    # Then try to apply the postback column migration
+                    if run_command("flask db upgrade", "Apply remaining migrations", ignore_errors=True):
+                        print("✓ Successfully applied migrations")
+                        return True
+                    else:
+                        print("⚠ Could not apply all migrations automatically")
+                        print("Database may need manual migration - check logs above")
+                        # Don't fail completely, let the app try to start
+                        return True
+                        
         except Exception as e:
-            print(f"✗ Fallback table creation failed: {e}")
-            return False
+            print(f"✗ Database analysis failed: {e}")
+            print("Attempting basic table creation as fallback...")
+            try:
+                from app import create_app, db
+                app = create_app()
+                with app.app_context():
+                    db.create_all()
+                    print("✓ Basic tables created")
+                    return True
+            except Exception as e2:
+                print(f"✗ Fallback table creation also failed: {e2}")
+                return False
 
 
 def create_admin_user():
