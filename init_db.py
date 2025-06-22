@@ -41,16 +41,40 @@ def check_database_connection():
     print("=== Checking Database Connection ===")
 
     try:
-        from app import create_app, db
-        from sqlalchemy import text
-
-        app = create_app()
-        with app.app_context():
-            # Test database connection using modern SQLAlchemy syntax
-            with db.engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
+        import psycopg2
+        import urllib.parse
+        import os
+        
+        # Get database URL from environment
+        database_url = os.environ.get('DATABASE_URL')
+        
+        if database_url:
+            # Parse PostgreSQL URL
+            url = urllib.parse.urlparse(database_url)
+            conn = psycopg2.connect(
+                host=url.hostname,
+                port=url.port or 5432,
+                user=url.username,
+                password=url.password,
+                database=url.path[1:] if url.path else 'postgres'
+            )
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            conn.close()
             print("✓ Database connection successful")
             return True
+        else:
+            # Fallback for SQLite or other databases
+            from app import create_app, db
+            from sqlalchemy import text
+
+            app = create_app()
+            with app.app_context():
+                # Test database connection using modern SQLAlchemy syntax
+                with db.engine.connect() as connection:
+                    connection.execute(text("SELECT 1"))
+                print("✓ Database connection successful")
+                return True
     except Exception as e:
         print(f"✗ Database connection failed: {e}")
         return False
