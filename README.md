@@ -25,9 +25,11 @@ A Flask application for testing Terminal Connect API integration with support fo
   - Process linked refunds (requires parent intent ID)
   - Process reversals
 - **Postback Inspection**
-  - All postbacks sent to `/postback` are recorded in a file
+  - All postbacks sent to `/postback` are recorded (database for users, file for guests)
   - Postbacks are viewable at `/postbacks` in a table with expandable details
-  - Postbacks are cleared daily
+  - Search functionality for Intent ID, Transaction ID, and Terminal ID
+  - Customizable column visibility (saved per user)
+  - Postbacks are cleared daily for guests, kept with limits for users
   - Sensitive headers (e.g., Authorization) are masked in the UI
 - **Health Monitoring**
   - Built-in health check endpoint at `/health`
@@ -242,7 +244,8 @@ curl http://localhost:5000/health
 
 ### Postbacks
 - **`POST /postback`** - Postback receiver endpoint
-- **`GET /postbacks`** - View received postbacks
+- **`GET /postbacks`** - View received postbacks with search and filtering
+- **`POST /postbacks/column-preferences`** - Save column visibility preferences (authenticated users)
 
 ## Data Persistence
 
@@ -252,9 +255,10 @@ curl http://localhost:5000/health
 - **Development** - Source code mounted for live reload
 
 ### File Storage
-- Postbacks stored in `/tmp/postbacks.json`
-- Daily cleanup of old postback data
-- Configuration data in database
+- **Authenticated users**: Postbacks stored in PostgreSQL with search indexes
+- **Guest users**: Postbacks stored in `/tmp/postbacks.json` with daily cleanup
+- **Column preferences**: Saved per user in database
+- **Configuration data**: Stored in database
 
 ## Security Features
 
