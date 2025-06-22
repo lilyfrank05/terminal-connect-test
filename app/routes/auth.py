@@ -176,7 +176,7 @@ def register():
 def refresh():
     """Refresh access token using refresh token."""
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
 
     if not user or not user.is_active:
         return (

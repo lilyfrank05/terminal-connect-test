@@ -19,7 +19,7 @@ def jwt_required_with_user(f):
                     401,
                 )
 
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id)
             if not user:
                 return (
                     jsonify({"message": "User not found", "error": "user_not_found"}),
@@ -65,7 +65,7 @@ def admin_required(f):
                     401,
                 )
 
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id)
             if not user:
                 return (
                     jsonify({"message": "User not found", "error": "user_not_found"}),
@@ -115,7 +115,7 @@ def optional_jwt_user(f):
             user_id = get_jwt_identity()
 
             if user_id:
-                user = User.query.get(user_id)
+                user = db.session.get(User, user_id)
                 if user and not user.is_active:
                     user = None
 
@@ -139,7 +139,7 @@ def get_current_user():
         if not user_id:
             return None
 
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if user and user.is_active:
             return user
 

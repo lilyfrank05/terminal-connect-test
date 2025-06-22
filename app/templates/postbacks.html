@@ -6,20 +6,81 @@
 <div class="row justify-content-center">
     <div class="col-md-10">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="bi bi-bell me-2"></i>Postback Messages</h4>
-                <div class="d-flex align-items-center gap-3">
-                    <span class="badge bg-primary">{{ pagination.total }} total</span>
-                    <!-- Per-page selector -->
-                    <div class="d-flex align-items-center">
-                        <label for="per-page-select" class="form-label me-2 mb-0 small">Show:</label>
-                        <select id="per-page-select" class="form-select form-select-sm" style="width: auto;" onchange="changePerPage()">
-                            <option value="20" {% if request.args.get('per_page', 20)|int == 20 %}selected{% endif %}>20</option>
-                            <option value="50" {% if request.args.get('per_page', 20)|int == 50 %}selected{% endif %}>50</option>
-                            <option value="100" {% if request.args.get('per_page', 20)|int == 100 %}selected{% endif %}>100</option>
-                        </select>
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0"><i class="bi bi-bell me-2"></i>Postback Messages</h4>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-primary">{{ pagination.total }} total</span>
+                        <!-- Per-page selector -->
+                        <div class="d-flex align-items-center">
+                            <label for="per-page-select" class="form-label me-2 mb-0 small">Show:</label>
+                            <select id="per-page-select" class="form-select form-select-sm" style="width: auto;" onchange="changePerPage()">
+                                <option value="20" {% if request.args.get('per_page', 20)|int == 20 %}selected{% endif %}>20</option>
+                                <option value="50" {% if request.args.get('per_page', 20)|int == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if request.args.get('per_page', 20)|int == 100 %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
+                
+                <!-- Search functionality -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <form method="GET" action="{{ url_for('postbacks.list_postbacks') }}" class="d-flex gap-2">
+                            <input type="text" 
+                                   class="form-control form-control-sm" 
+                                   name="search" 
+                                   placeholder="Search by Intent ID, Transaction ID, or Terminal ID..." 
+                                   value="{{ request.args.get('search', '') }}"
+                                   style="max-width: 400px;">
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                            {% if request.args.get('search') %}
+                            <a href="{{ url_for('postbacks.list_postbacks') }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </a>
+                            {% endif %}
+                            <!-- Preserve per_page in search -->
+                            <input type="hidden" name="per_page" value="{{ request.args.get('per_page', 20) }}">
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Column visibility controls for authenticated users -->
+                {% if user_id %}
+                <div class="d-flex flex-wrap gap-2">
+                    <small class="text-muted me-2">Show columns:</small>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-time" data-column="time" {% if column_preferences.time %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-time">Time</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-intent-id" data-column="intent_id" {% if column_preferences.intent_id %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-intent-id">Intent ID</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-transaction-id" data-column="transaction_id" {% if column_preferences.transaction_id %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-transaction-id">Transaction ID</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-status" data-column="status" {% if column_preferences.status %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-status">Status</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-terminal-id" data-column="terminal_id" {% if column_preferences.terminal_id %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-terminal-id">Terminal ID</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-transaction-type" data-column="transaction_type" {% if column_preferences.transaction_type %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-transaction-type">Transaction Type</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input column-toggle" type="checkbox" id="col-reference" data-column="reference" {% if column_preferences.reference %}checked{% endif %}>
+                        <label class="form-check-label small" for="col-reference">Reference</label>
+                    </div>
+                </div>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if postbacks %}
@@ -27,23 +88,39 @@
                         <table class="table table-hover" style="table-layout: fixed; width: 100%;">
                             <thead>
                                 <tr>
-                                    <th style="width: 22%">Time</th>
-                                    <th style="width: 18%">Status</th>
-                                    <th style="width: 30%">Reference</th>
-                                    <th style="width: 10%">Details</th>
+                                    <th class="column-time" style="width: 15%" {% if not column_preferences.time %}hidden{% endif %}>Time</th>
+                                    <th class="column-intent_id" style="width: 12%" {% if not column_preferences.intent_id %}hidden{% endif %}>Intent ID</th>
+                                    <th class="column-transaction_id" style="width: 12%" {% if not column_preferences.transaction_id %}hidden{% endif %}>Transaction ID</th>
+                                    <th class="column-status" style="width: 10%" {% if not column_preferences.status %}hidden{% endif %}>Status</th>
+                                    <th class="column-terminal_id" style="width: 12%" {% if not column_preferences.terminal_id %}hidden{% endif %}>Terminal ID</th>
+                                    <th class="column-transaction_type" style="width: 12%" {% if not column_preferences.transaction_type %}hidden{% endif %}>Transaction Type</th>
+                                    <th class="column-reference" style="width: 15%" {% if not column_preferences.reference %}hidden{% endif %}>Reference</th>
+                                    <th class="column-details" style="width: 12%">Details</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for postback in postbacks %}
                                 <tr>
-                                    <td class="text-break">{{ postback.received_at }}</td>
-                                    <td>
+                                    <td class="text-break column-time" {% if not column_preferences.time %}hidden{% endif %}>{{ postback.received_at }}</td>
+                                    <td class="text-break column-intent_id" {% if not column_preferences.intent_id %}hidden{% endif %}><code>{{ postback.intent_id if postback.intent_id else (postback.payload.intentId if postback.payload and postback.payload.intentId else 'unknown_intent') }}</code></td>
+                                    <td class="text-break column-transaction_id" {% if not column_preferences.transaction_id %}hidden{% endif %}><code>{{ postback.transaction_id if postback.transaction_id else (postback.payload.transactionId if postback.payload and postback.payload.transactionId else 'N/A') }}</code></td>
+                                    <td class="column-status" {% if not column_preferences.status %}hidden{% endif %}>
                                         <span class="badge {% if postback.payload and postback.payload.status == 'success' %}bg-success{% elif postback.payload and postback.payload.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
                                             {{ postback.payload.status if postback.payload and postback.payload.status else 'N/A' }}
                                         </span>
                                     </td>
-                                    <td class="text-break"><code>{{ postback.payload.merchantReference if postback.payload and postback.payload.merchantReference else 'N/A' }}</code></td>
-                                    <td>
+                                    <td class="text-break column-terminal_id" {% if not column_preferences.terminal_id %}hidden{% endif %}><code>{{ postback.payload.terminalId if postback.payload and postback.payload.terminalId else 'N/A' }}</code></td>
+                                    <td class="text-break column-transaction_type" {% if not column_preferences.transaction_type %}hidden{% endif %}>
+                                        {% if postback.transaction_type %}
+                                            <span class="badge bg-info">{{ postback.transaction_type }}</span>
+                                        {% elif postback.payload and postback.payload.transactionType %}
+                                            <span class="badge bg-info">{{ postback.payload.transactionType }}</span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-break column-reference" {% if not column_preferences.reference %}hidden{% endif %}><code>{{ postback.payload.merchantReference if postback.payload and postback.payload.merchantReference else 'N/A' }}</code></td>
+                                    <td class="column-details">
                                         <button class="btn btn-sm btn-outline-primary" type="button" 
                                                 data-bs-toggle="collapse" 
                                                 data-bs-target="#details-{{ loop.index }}" 
@@ -52,8 +129,8 @@
                                         </button>
                                     </td>
                                 </tr>
-                                <tr class="collapse" id="details-{{ loop.index }}">
-                                    <td colspan="4" class="p-0">
+                                <tr class="collapse details-row" id="details-{{ loop.index }}">
+                                    <td class="details-colspan p-0">
                                         <div class="card card-body bg-light m-2">
                                             <strong>Payload:</strong>
                                             <pre class="mb-2" style="white-space: pre-wrap; word-break: break-all; overflow-x: auto;"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
@@ -79,7 +156,7 @@
                             <ul class="pagination pagination-sm mb-0">
                                 <!-- Previous button -->
                                 <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                                    <a class="page-link" href="{% if pagination.has_prev %}{{ url_for('postbacks.list_postbacks', page=pagination.prev_num, per_page=request.args.get('per_page', 20)) }}{% else %}#{% endif %}">
+                                    <a class="page-link" href="{% if pagination.has_prev %}{{ url_for('postbacks.list_postbacks', page=pagination.prev_num, per_page=request.args.get('per_page', 20), search=request.args.get('search', '')) }}{% else %}#{% endif %}">
                                         <i class="bi bi-chevron-left"></i>
                                     </a>
                                 </li>
@@ -90,7 +167,7 @@
                                 
                                 {% if start_page > 1 %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('postbacks.list_postbacks', page=1, per_page=request.args.get('per_page', 20)) }}">1</a>
+                                        <a class="page-link" href="{{ url_for('postbacks.list_postbacks', page=1, per_page=request.args.get('per_page', 20), search=request.args.get('search', '')) }}">1</a>
                                     </li>
                                     {% if start_page > 2 %}
                                         <li class="page-item disabled">
@@ -101,7 +178,7 @@
                                 
                                 {% for page_num in range(start_page, end_page + 1) %}
                                     <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                                        <a class="page-link" href="{{ url_for('postbacks.list_postbacks', page=page_num, per_page=request.args.get('per_page', 20)) }}">{{ page_num }}</a>
+                                        <a class="page-link" href="{{ url_for('postbacks.list_postbacks', page=page_num, per_page=request.args.get('per_page', 20), search=request.args.get('search', '')) }}">{{ page_num }}</a>
                                     </li>
                                 {% endfor %}
                                 
@@ -112,13 +189,13 @@
                                         </li>
                                     {% endif %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('postbacks.list_postbacks', page=pagination.pages, per_page=request.args.get('per_page', 20)) }}">{{ pagination.pages }}</a>
+                                        <a class="page-link" href="{{ url_for('postbacks.list_postbacks', page=pagination.pages, per_page=request.args.get('per_page', 20), search=request.args.get('search', '')) }}">{{ pagination.pages }}</a>
                                     </li>
                                 {% endif %}
                                 
                                 <!-- Next button -->
                                 <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                                    <a class="page-link" href="{% if pagination.has_next %}{{ url_for('postbacks.list_postbacks', page=pagination.next_num, per_page=request.args.get('per_page', 20)) }}{% else %}#{% endif %}">
+                                    <a class="page-link" href="{% if pagination.has_next %}{{ url_for('postbacks.list_postbacks', page=pagination.next_num, per_page=request.args.get('per_page', 20), search=request.args.get('search', '')) }}{% else %}#{% endif %}">
                                         <i class="bi bi-chevron-right"></i>
                                     </a>
                                 </li>
@@ -143,7 +220,78 @@ function changePerPage() {
     const url = new URL(window.location);
     url.searchParams.set('per_page', perPage);
     url.searchParams.set('page', '1'); // Reset to page 1 when changing per_page
+    // Preserve search parameter
+    const searchValue = document.querySelector('input[name="search"]');
+    if (searchValue && searchValue.value) {
+        url.searchParams.set('search', searchValue.value);
+    }
     window.location.href = url.toString();
 }
+
+// Column toggle functionality for authenticated users
+{% if user_id %}
+document.addEventListener('DOMContentLoaded', function() {
+    const columnToggles = document.querySelectorAll('.column-toggle');
+    
+    function updateColspan() {
+        // Count visible columns (including Details which is always visible)
+        let visibleCount = 1; // Details column is always visible
+        columnToggles.forEach(toggle => {
+            if (toggle.checked) {
+                visibleCount++;
+            }
+        });
+        
+        // Update all details rows colspan
+        const detailsCells = document.querySelectorAll('.details-colspan');
+        detailsCells.forEach(cell => {
+            cell.setAttribute('colspan', visibleCount);
+        });
+    }
+    
+    // Set initial colspan
+    updateColspan();
+    
+    columnToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const columnName = this.dataset.column;
+            const isVisible = this.checked;
+            
+            // Toggle column visibility
+            const elements = document.querySelectorAll(`.column-${columnName}`);
+            elements.forEach(element => {
+                if (isVisible) {
+                    element.removeAttribute('hidden');
+                } else {
+                    element.setAttribute('hidden', '');
+                }
+            });
+            
+            // Update colspan for details rows
+            updateColspan();
+            
+            // Save preferences to server
+            saveColumnPreferences();
+        });
+    });
+    
+    function saveColumnPreferences() {
+        const preferences = {};
+        columnToggles.forEach(toggle => {
+            preferences[toggle.dataset.column] = toggle.checked;
+        });
+        
+        fetch('/postbacks/column-preferences', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(preferences)
+        }).catch(error => {
+            console.error('Error saving column preferences:', error);
+        });
+    }
+});
+{% endif %}
 </script>
 {% endblock %} 

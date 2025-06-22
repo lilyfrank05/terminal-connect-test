@@ -76,7 +76,7 @@ def get_users(admin_user):
 @admin_required
 def get_user(admin_user, user_id):
     """Get specific user details."""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     user_data = user.to_dict()
     user_data["configs"] = [config.to_dict() for config in user.configs]
@@ -95,7 +95,7 @@ def update_user(admin_user, user_id):
     except ValidationError as e:
         return jsonify({"message": "Validation error", "errors": e.messages}), 400
 
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     # Prevent admin from deactivating themselves
     if user.id == admin_user.id and "is_active" in data and not data["is_active"]:
@@ -160,7 +160,7 @@ def update_user(admin_user, user_id):
 @admin_required
 def delete_user(admin_user, user_id):
     """Delete a user and all their data."""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     # Prevent admin from deleting themselves
     if user.id == admin_user.id:
