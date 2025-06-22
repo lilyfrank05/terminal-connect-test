@@ -153,11 +153,8 @@ def apply_migrations():
                     # Try to apply migrations one by one, ignoring errors for existing objects
                     print("Attempting individual migration steps...")
                     
-                    # First, try to initialize migration tracking if it doesn't exist
-                    run_command("flask db stamp 1646a6a066a5", "Mark initial migration", ignore_errors=True)
-                    
-                    # Then try to apply the postback column migration
-                    if run_command("flask db upgrade", "Apply remaining migrations", ignore_errors=True):
+                    # Try to apply the v1.2.0 migration which handles both fresh installs and upgrades
+                    if run_command("flask db upgrade", "Apply v1.2.0 migration", ignore_errors=True):
                         print("✓ Successfully applied migrations")
                         return True
                     else:
