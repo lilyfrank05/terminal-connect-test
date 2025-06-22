@@ -45,6 +45,9 @@ class User(db.Model):
     reset_token_expires: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True
     )
+    
+    # Postback column preferences (JSON string)
+    postback_column_preferences: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
     configs: Mapped[List["UserConfig"]] = relationship(
@@ -230,7 +233,8 @@ class UserPostback(db.Model):
     transaction_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # 'sale', 'refund', 'reversal'
-    transaction_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    transaction_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    intent_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     amount: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -249,6 +253,7 @@ class UserPostback(db.Model):
             "user_id": self.user_id,
             "transaction_type": self.transaction_type,
             "transaction_id": self.transaction_id,
+            "intent_id": self.intent_id,
             "amount": self.amount,
             "currency": self.currency,
             "status": self.status,
