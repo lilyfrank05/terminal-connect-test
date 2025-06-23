@@ -137,28 +137,8 @@ def create_app(test_config=None, *args, **kwargs):
     def revoked_token_callback(jwt_header, jwt_payload):
         return {"message": "Token has been revoked", "error": "token_revoked"}, 401
 
-    # Initialize database tables
-    with app.app_context():
-        db.create_all()
-
-        # Create admin user if it doesn't exist and environment variables are set
-        from .models import User
-
-        admin_email = os.getenv("ADMIN_EMAIL")
-        admin_password = os.getenv("ADMIN_PASSWORD")
-
-        if admin_email and admin_password:
-            existing_admin = User.query.filter_by(email=admin_email).first()
-            if not existing_admin:
-                admin_user = User(email=admin_email, role="admin", is_active=True)
-                admin_user.set_password(admin_password)
-                db.session.add(admin_user)
-                db.session.commit()
-                print(f"Admin user created: {admin_email}")
-        else:
-            print(
-                "Warning: ADMIN_EMAIL and ADMIN_PASSWORD environment variables not set. No default admin user created."
-            )
+    # Note: Database initialization and admin user creation moved to init_db.py
+    # to avoid circular dependency issues with Flask-Migrate
 
     # Initialize scheduler for guest postbacks cleanup (only in production/non-testing)
     if not app.config.get("TESTING", False) and scheduler is None:
