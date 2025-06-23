@@ -129,6 +129,10 @@ def upgrade():
             if 'status' not in postback_columns:
                 print("Adding status column to user_postbacks table...")
                 op.add_column('user_postbacks', sa.Column('status', sa.String(length=50), nullable=False, server_default='success'))
+            
+            if 'intent_id' not in postback_columns:
+                print("Adding intent_id column to user_postbacks table...")
+                op.add_column('user_postbacks', sa.Column('intent_id', sa.String(length=100), nullable=False, server_default='unknown'))
 
 
 def downgrade():
