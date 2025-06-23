@@ -78,10 +78,14 @@ def upgrade():
         op.create_table('user_postbacks',
             sa.Column('id', sa.Integer(), nullable=False),
             sa.Column('user_id', sa.Integer(), nullable=False),
-            sa.Column('transaction_id', sa.String(length=255), nullable=False),
-            sa.Column('intent_id', sa.String(length=255), nullable=True),
+            sa.Column('transaction_type', sa.String(length=50), nullable=False),
+            sa.Column('transaction_id', sa.String(length=100), nullable=True),
+            sa.Column('intent_id', sa.String(length=100), nullable=False),
+            sa.Column('amount', sa.String(length=20), nullable=True),
+            sa.Column('currency', sa.String(length=10), nullable=True),
+            sa.Column('status', sa.String(length=50), nullable=False),
             sa.Column('postback_data', sa.Text(), nullable=False),
-            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=False),
             sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
             sa.PrimaryKeyConstraint('id')
         )
@@ -104,6 +108,27 @@ def upgrade():
             if 'display_order' not in config_columns:
                 print("Adding display_order column to user_configs table...")
                 op.add_column('user_configs', sa.Column('display_order', sa.Integer(), nullable=False, server_default='0'))
+        
+        # Check if user_postbacks table has all required columns
+        if 'user_postbacks' in existing_tables:
+            postback_columns = [col['name'] for col in inspector.get_columns('user_postbacks')]
+            
+            # Add missing columns to user_postbacks table if they don't exist
+            if 'transaction_type' not in postback_columns:
+                print("Adding transaction_type column to user_postbacks table...")
+                op.add_column('user_postbacks', sa.Column('transaction_type', sa.String(length=50), nullable=False, server_default='sale'))
+            
+            if 'amount' not in postback_columns:
+                print("Adding amount column to user_postbacks table...")
+                op.add_column('user_postbacks', sa.Column('amount', sa.String(length=20), nullable=True))
+            
+            if 'currency' not in postback_columns:
+                print("Adding currency column to user_postbacks table...")
+                op.add_column('user_postbacks', sa.Column('currency', sa.String(length=10), nullable=True))
+            
+            if 'status' not in postback_columns:
+                print("Adding status column to user_postbacks table...")
+                op.add_column('user_postbacks', sa.Column('status', sa.String(length=50), nullable=False, server_default='success'))
 
 
 def downgrade():
