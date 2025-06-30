@@ -59,7 +59,7 @@
                         </div>
                     </div>
 
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label for="postback_url" class="form-label">Postback URL</label>
                         <div class="input-group">
                             <input type="url" class="form-control" id="postback_url" name="postback_url" value="{{ postback_url }}" placeholder="https://your-server.com/webhook">
@@ -70,6 +70,15 @@
                         <div class="form-text">
                             <i class="bi bi-info-circle"></i> 
                             URL where payment notifications will be sent. Leave blank to use the built-in postback handler.
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="postback_delay" class="form-label">Postback Delay (seconds)</label>
+                        <input type="number" class="form-control" id="postback_delay" name="postback_delay" value="{{ postback_delay }}" min="0" max="600" placeholder="0">
+                        <div class="form-text">
+                            <i class="bi bi-clock"></i> 
+                            Delay in seconds before responding to postback messages. Maximum 600 seconds (10 minutes). Default is 0 (no delay).
                         </div>
                     </div>
                     
@@ -158,6 +167,11 @@
                                         <label class="form-label-sm">Postback URL</label>
                                         <input type="url" name="postback_url_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.postback_url or '' }}" placeholder="https://your-server.com/webhook">
                                         <div class="form-text small">Leave blank for built-in handler</div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label-sm">Postback Delay (seconds)</label>
+                                        <input type="number" name="postback_delay_{{ conf.id }}" class="form-control form-control-sm" value="{{ conf.postback_delay }}" min="0" max="600" placeholder="0">
+                                        <div class="form-text small">Max 600 seconds (10 minutes)</div>
                                     </div>
                                     <div class="d-grid">
                                         <button type="submit" class="btn btn-sm btn-success">Update</button>

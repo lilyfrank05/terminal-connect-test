@@ -194,6 +194,7 @@ class UserConfig(db.Model):
     tid: Mapped[str] = mapped_column(String(100), nullable=False)
     api_key: Mapped[str] = mapped_column(Text, nullable=False)
     postback_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    postback_delay: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -218,6 +219,7 @@ class UserConfig(db.Model):
             "tid": self.tid,
             "api_key": self.api_key,
             "postback_url": self.postback_url,
+            "postback_delay": self.postback_delay,
             "is_default": self.is_default,
             "display_order": self.display_order,
             "created_at": self.created_at.isoformat() if self.created_at else None,

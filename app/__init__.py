@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from flask import Flask, jsonify
@@ -73,6 +74,18 @@ def create_app(test_config=None, *args, **kwargs):
     global scheduler
 
     app = Flask(__name__, instance_relative_config=True)
+    
+    # Configure logging to show INFO level messages in console
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(),  # Console output
+            ]
+        )
+        # Set app logger level
+        app.logger.setLevel(logging.INFO)
 
     # JWT Configuration
     app.config.from_mapping(

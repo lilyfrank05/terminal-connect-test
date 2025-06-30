@@ -1,6 +1,7 @@
 import pytest
 import json
-from app.models import User, UserPostback
+import time
+from app.models import User, UserPostback, UserConfig
 from app import db
 
 
@@ -506,3 +507,223 @@ class TestPostbackColumns:
         
         response = client.get("/postbacks")
         assert b"test-terminal-789" in response.data
+
+
+class TestPostbackDelay:
+    """Tests for postback delay functionality"""
+
+    def test_config_validation_valid_delay(self, client):
+        """Test that valid postback delay values are accepted"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        # Test valid delay values
+        valid_delays = [0, 1, 60, 300, 600]
+        
+        for delay in valid_delays:
+            response = client.post("/config", data={
+                "config_name": f"Test Config {delay}",
+                "environment": "sandbox",
+                "mid": "test_mid",
+                "tid": "test_tid", 
+                "api_key": "test_key",
+                "postback_delay": str(delay)
+            }, follow_redirects=True)
+            assert response.status_code == 200
+            # Check for success message
+            assert b"saved successfully" in response.data
+
+    def test_config_validation_invalid_delay_negative(self, client):
+        """Test that negative postback delay values are rejected"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox", 
+            "mid": "test_mid",
+            "tid": "test_tid",
+            "api_key": "test_key",
+            "postback_delay": "-1"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Postback delay must be between 0 and 600 seconds" in response.data
+
+    def test_config_validation_invalid_delay_too_large(self, client):
+        """Test that postback delay values over 600 are rejected"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox",
+            "mid": "test_mid", 
+            "tid": "test_tid",
+            "api_key": "test_key",
+            "postback_delay": "601"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Postback delay must be between 0 and 600 seconds" in response.data
+
+    def test_config_validation_invalid_delay_non_numeric(self, client):
+        """Test that non-numeric postback delay values are rejected"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox",
+            "mid": "test_mid",
+            "tid": "test_tid", 
+            "api_key": "test_key",
+            "postback_delay": "invalid"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Postback delay must be a valid number" in response.data
+
+    def test_url_based_delay_functionality(self, client):
+        """Test that delay is applied when specified via URL query parameter"""
+        # Test delay via URL parameter directly
+        postback_data = create_test_postback_data()
+        start_time = time.time()
+        response = client.post("/postback?delay=2", json=postback_data)
+        end_time = time.time()
+        
+        assert response.status_code == 200
+        # Allow for some tolerance in timing (should be at least 1.8 seconds)
+        assert end_time - start_time >= 1.8
+
+    def test_config_generates_url_with_delay_param(self, client):
+        """Test that configurations generate postback URLs with delay parameters"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        # Save configuration with delay
+        response = client.post("/config", data={
+            "config_name": "Test Config With Delay",
+            "environment": "sandbox", 
+            "mid": "test_mid",
+            "tid": "test_tid",
+            "api_key": "test_key",
+            "postback_delay": "3"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify config is saved with delay
+        with client.application.app_context():
+            user = User.query.filter_by(email="user@test.com").first()
+            config = UserConfig.query.filter_by(user_id=user.id).first()
+            assert config.postback_delay == 3
+        
+        # Load the config into session
+        response = client.get(f"/config/load/{config.id}", follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Check that session contains URL with delay parameter
+        with client.session_transaction() as session:
+            postback_url = session.get("POSTBACK_URL", "")
+            assert "delay=3" in postback_url
+
+    def test_no_delay_when_zero_url_param(self, client):
+        """Test that no delay is applied when URL delay parameter is 0"""
+        postback_data = create_test_postback_data()
+        start_time = time.time()
+        response = client.post("/postback?delay=0", json=postback_data)
+        end_time = time.time()
+        
+        assert response.status_code == 200
+        # Should be fast (less than 0.5 seconds for processing)
+        assert end_time - start_time < 0.5
+        
+    def test_invalid_delay_url_param(self, client):
+        """Test that invalid delay URL parameters default to 0"""
+        postback_data = create_test_postback_data()
+        
+        # Test non-numeric delay
+        start_time = time.time()
+        response = client.post("/postback?delay=invalid", json=postback_data)
+        end_time = time.time()
+        assert response.status_code == 200
+        assert end_time - start_time < 0.5
+        
+        # Test out-of-range delay (too high)
+        start_time = time.time()
+        response = client.post("/postback?delay=700", json=postback_data)
+        end_time = time.time()
+        assert response.status_code == 200
+        assert end_time - start_time < 0.5
+        
+        # Test negative delay
+        start_time = time.time()
+        response = client.post("/postback?delay=-5", json=postback_data)
+        end_time = time.time()
+        assert response.status_code == 200
+        assert end_time - start_time < 0.5
+        
+    def test_guest_user_config_with_delay_creates_url_param(self, client):
+        """Test that guest user configuration with delay adds parameter to URL"""
+        guest_login(client)
+        
+        # Set configuration with delay for guest user
+        response = client.post("/config", data={
+            "environment": "sandbox",
+            "mid": "test_mid",
+            "tid": "test_tid",
+            "api_key": "test_key", 
+            "postback_delay": "5"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Check that session contains URL with delay parameter
+        with client.session_transaction() as session:
+            postback_url = session.get("POSTBACK_URL", "")
+            assert "delay=5" in postback_url
+
+    def test_postback_delay_field_in_config_form(self, client):
+        """Test that postback delay field appears in configuration form"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.get("/config")
+        assert response.status_code == 200
+        assert b"postback_delay" in response.data
+        assert b"Postback Delay (seconds)" in response.data
+        assert b"max=\"600\"" in response.data
+
+    def test_update_existing_config_with_delay(self, client):
+        """Test updating an existing configuration's postback delay"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        # Create initial config
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox",
+            "mid": "test_mid",
+            "tid": "test_tid", 
+            "api_key": "test_key",
+            "postback_delay": "0"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Get the config ID
+        with client.application.app_context():
+            user = User.query.filter_by(email="user@test.com").first()
+            config = UserConfig.query.filter_by(user_id=user.id).first()
+            config_id = config.id
+        
+        # Update config with delay
+        response = client.post(f"/config/update/{config_id}", data={
+            f"config_name_{config_id}": "Updated Test Config",
+            f"environment_{config_id}": "sandbox",
+            f"mid_{config_id}": "test_mid",
+            f"tid_{config_id}": "test_tid",
+            f"api_key_{config_id}": "test_key",
+            f"postback_delay_{config_id}": "3"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify delay was updated
+        with client.application.app_context():
+            updated_config = UserConfig.query.get(config_id)
+            assert updated_config.postback_delay == 3
