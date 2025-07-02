@@ -13,9 +13,10 @@ services:
       - TID=${TID:-}
       - API_KEY=${API_KEY:-}
       - DEBUG=true
-      # Gunicorn Development Configuration (lighter load)
+      # Gunicorn Development Configuration (threaded for non-blocking delays)
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
-      - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-sync}
+      - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-gthread}
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-4}
       - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
       - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-0}
     ports:

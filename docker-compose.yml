@@ -12,9 +12,10 @@ services:
       - MID=${MID}
       - TID=${TID}
       - API_KEY=${API_KEY}
-      # Gunicorn Production Configuration
+      # Gunicorn Production Configuration (threaded for non-blocking delays)
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-}
-      - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-sync}
+      - GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-gthread}
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-8}
       - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-60}
       - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-1000}
     ports:
