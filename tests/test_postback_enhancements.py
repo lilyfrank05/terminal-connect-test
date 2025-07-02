@@ -725,5 +725,5 @@ class TestPostbackDelay:
         
         # Verify delay was updated
         with client.application.app_context():
-            updated_config = UserConfig.query.get(config_id)
+            updated_config = db.session.get(UserConfig, config_id)
             assert updated_config.postback_delay == 3
