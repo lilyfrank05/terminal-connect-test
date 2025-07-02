@@ -130,12 +130,12 @@
                                     </td>
                                 </tr>
                                 <tr class="collapse details-row" id="details-{{ loop.index }}">
-                                    <td class="details-colspan p-0">
-                                        <div class="card card-body bg-light m-2">
-                                            <strong>Payload:</strong>
-                                            <pre class="mb-2" style="white-space: pre-wrap; word-break: break-all; overflow-x: auto;"><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
-                                            <strong>Headers:</strong>
-                                            <pre class="mb-0" style="white-space: pre-wrap; word-break: break-all; overflow-x: auto;"><code>{{ postback.headers|tojson(indent=2) }}</code></pre>
+                                    <td class="details-colspan p-0" colspan="8" style="border-top: none;">
+                                        <div class="postback-details-expanded">
+                                            <div class="section-title">Payload:</div>
+                                            <pre><code>{{ postback.payload|tojson(indent=2) }}</code></pre>
+                                            <div class="section-title">Headers:</div>
+                                            <pre><code>{{ postback.headers|tojson(indent=2) }}</code></pre>
                                         </div>
                                     </td>
                                 </tr>
@@ -294,4 +294,33 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 {% endif %}
 </script>
+
+<style>
+.postback-details-expanded {
+    background: #f8f9fa;
+    font-size: 0.97em;
+    padding: 20px 28px;
+    border-radius: 0 0 8px 8px;
+    border-top: 1px solid #e5e7eb;
+    margin: 0;
+}
+.postback-details-expanded pre {
+    margin: 0 0 16px 0;
+    font-family: 'Fira Mono', 'Consolas', monospace;
+    background: #f4f4f4;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.postback-details-expanded .section-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    margin-top: 18px;
+}
+.postback-details-expanded .section-title:first-child {
+    margin-top: 0;
+}
+</style>
 {% endblock %} 

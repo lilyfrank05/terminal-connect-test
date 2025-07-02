@@ -1,10 +1,15 @@
 import json
 import datetime
 import os
+import time
+import logging
+import threading
+import queue
+import asyncio
 from flask import Blueprint, request, jsonify, render_template, current_app, session
 from ..utils.auth import optional_jwt_user
 from ..models import db
-from ..models import UserPostback, User
+from ..models import UserPostback, User, UserConfig
 
 bp = Blueprint("postbacks", __name__)
 
@@ -72,7 +77,9 @@ def mask_headers(headers):
 @optional_jwt_user
 def postback(user=None, user_id=None):
     """Handle incoming postback messages from Terminal Connect"""
+    logger = logging.getLogger(__name__)
     postback_data = request.get_json()
+    logger.info(f"Received postback: {postback_data.get('intentId', 'N/A')} from {request.remote_addr}")
 
     # Determine user_id from multiple sources (priority order):
     # 1. URL parameter (for user-specific postback URLs)
@@ -132,6 +139,50 @@ def postback(user=None, user_id=None):
             postbacks = postbacks[-50:]
         save_guest_postbacks(postbacks)
 
+    # Apply postback delay if configured via URL query parameter
+    logger = logging.getLogger(__name__)
+    delay_seconds = 0
+    
+    # Get delay from URL query parameter
+    delay_param = request.args.get('delay', '0')
+    logger.info(f"Postback delay processing started. delay param from URL: '{delay_param}'")
+    
+    try:
+        delay_seconds = int(delay_param) if delay_param else 0
+        logger.info(f"Parsed delay from URL: {delay_seconds} seconds")
+        
+        # Validate delay range
+        if delay_seconds < 0 or delay_seconds > 600:
+            logger.warning(f"Invalid delay value {delay_seconds}, must be 0-600. Using 0.")
+            delay_seconds = 0
+            
+    except ValueError:
+        logger.error(f"Invalid delay parameter '{delay_param}', must be numeric. Using 0.")
+        delay_seconds = 0
+    
+    # Apply delay if configured and valid
+    if delay_seconds > 0:
+        logger.info(f"Applying non-blocking delay of {delay_seconds} seconds...")
+        
+        # Use a threading approach to avoid blocking the main thread
+        # Create a queue to wait for completion  
+        delay_queue = queue.Queue()
+        
+        def delayed_completion():
+            time.sleep(delay_seconds)
+            delay_queue.put("completed")
+        
+        # Start the delay in a separate thread
+        delay_thread = threading.Thread(target=delayed_completion)
+        delay_thread.start()
+        
+        # Wait for completion (this blocks this request but not others)
+        delay_queue.get()
+        logger.info(f"Non-blocking delay completed: {delay_seconds} seconds")
+    else:
+        logger.info(f"No delay applied (delay_seconds={delay_seconds})")
+
+    logger.info(f"Returning postback response for intent: {postback_data.get('intentId', 'N/A')}")
     return jsonify({"status": "success"}), 200
 
 
