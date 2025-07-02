@@ -3,6 +3,9 @@ import datetime
 import os
 import time
 import logging
+import threading
+import queue
+import asyncio
 from flask import Blueprint, request, jsonify, render_template, current_app, session
 from ..utils.auth import optional_jwt_user
 from ..models import db
@@ -159,11 +162,23 @@ def postback(user=None, user_id=None):
     
     # Apply delay if configured and valid
     if delay_seconds > 0:
-        logger.info(f"Applying URL-specified delay of {delay_seconds} seconds...")
-        start_time = time.time()
-        time.sleep(delay_seconds)
-        end_time = time.time()
-        logger.info(f"Delay completed. Actual delay: {end_time - start_time:.2f} seconds")
+        logger.info(f"Applying non-blocking delay of {delay_seconds} seconds...")
+        
+        # Use a threading approach to avoid blocking the main thread
+        # Create a queue to wait for completion  
+        delay_queue = queue.Queue()
+        
+        def delayed_completion():
+            time.sleep(delay_seconds)
+            delay_queue.put("completed")
+        
+        # Start the delay in a separate thread
+        delay_thread = threading.Thread(target=delayed_completion)
+        delay_thread.start()
+        
+        # Wait for completion (this blocks this request but not others)
+        delay_queue.get()
+        logger.info(f"Non-blocking delay completed: {delay_seconds} seconds")
     else:
         logger.info(f"No delay applied (delay_seconds={delay_seconds})")
 

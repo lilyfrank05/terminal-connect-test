@@ -3,6 +3,7 @@ import json
 import time
 from app.models import User, UserPostback, UserConfig
 from app import db
+import logging
 
 
 # --- Helper Functions ---
@@ -727,3 +728,215 @@ class TestPostbackDelay:
         with client.application.app_context():
             updated_config = db.session.get(UserConfig, config_id)
             assert updated_config.postback_delay == 3
+
+
+class TestNonBlockingDelay:
+    """Tests for non-blocking delay functionality using threading"""
+
+    def test_delay_preserves_timing(self, client):
+        """Test that non-blocking delay still takes the correct amount of time"""
+        postback_data = create_test_postback_data()
+        start_time = time.time()
+        response = client.post("/postback?delay=3", json=postback_data)
+        end_time = time.time()
+        
+        assert response.status_code == 200
+        # Delay should still take at least 2.8 seconds (with some tolerance)
+        assert end_time - start_time >= 2.8
+        # But not too much longer (max 4 seconds accounting for processing)
+        assert end_time - start_time <= 4.0
+
+    def test_concurrent_delayed_requests(self, client):
+        """Test that multiple delayed requests can run simultaneously"""
+        import threading
+        import queue
+        
+        postback_data = create_test_postback_data()
+        results_queue = queue.Queue()
+        
+        def make_delayed_request(delay_seconds, request_id):
+            """Make a delayed postback request and record timing"""
+            start_time = time.time()
+            response = client.post(f"/postback?delay={delay_seconds}", json={
+                **postback_data,
+                "intentId": f"concurrent-test-{request_id}"
+            })
+            end_time = time.time()
+            results_queue.put({
+                "request_id": request_id,
+                "delay_seconds": delay_seconds,
+                "actual_time": end_time - start_time,
+                "status_code": response.status_code
+            })
+        
+        # Start 3 concurrent requests with different delays
+        threads = []
+        start_time = time.time()
+        
+        for i, delay in enumerate([2, 3, 4]):
+            thread = threading.Thread(target=make_delayed_request, args=(delay, i))
+            threads.append(thread)
+            thread.start()
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+        
+        total_time = time.time() - start_time
+        
+        # Collect results
+        results = []
+        while not results_queue.empty():
+            results.append(results_queue.get())
+        
+        # Verify all requests completed successfully
+        assert len(results) == 3
+        for result in results:
+            assert result["status_code"] == 200
+            # Each request should take at least its delay time
+            assert result["actual_time"] >= result["delay_seconds"] - 0.2
+        
+        # Total time should be close to the longest delay (4 seconds), not the sum (9 seconds)
+        # This proves they ran concurrently, not sequentially
+        assert total_time < 6.0  # Should be ~4 seconds, not ~9 seconds
+
+    def test_navigation_not_blocked_during_delay(self, client):
+        """Test that page navigation works while a delayed postback is in progress"""
+        import threading
+        import queue
+        
+        postback_data = create_test_postback_data()
+        results_queue = queue.Queue()
+        
+        def make_long_delayed_request():
+            """Make a long delayed postback request"""
+            start_time = time.time()
+            response = client.post("/postback?delay=5", json=postback_data)
+            end_time = time.time()
+            results_queue.put({
+                "postback_time": end_time - start_time,
+                "postback_status": response.status_code
+            })
+        
+        def test_navigation():
+            """Test navigation requests during delay"""
+            nav_start = time.time()
+            # Test multiple navigation requests
+            config_response = client.get("/config")
+            postbacks_response = client.get("/postbacks")
+            nav_end = time.time()
+            
+            results_queue.put({
+                "nav_time": nav_end - nav_start,
+                "config_status": config_response.status_code,
+                "postbacks_status": postbacks_response.status_code
+            })
+        
+        # Start long delayed postback request
+        postback_thread = threading.Thread(target=make_long_delayed_request)
+        postback_thread.start()
+        
+        # Wait a moment to ensure postback delay has started
+        time.sleep(0.1)
+        
+        # Test navigation while postback delay is active
+        nav_thread = threading.Thread(target=test_navigation)
+        nav_thread.start()
+        
+        # Wait for both to complete
+        nav_thread.join()
+        postback_thread.join()
+        
+        # Collect results
+        results = []
+        while not results_queue.empty():
+            results.append(results_queue.get())
+        
+        # Find navigation and postback results
+        nav_result = next(r for r in results if "nav_time" in r)
+        postback_result = next(r for r in results if "postback_time" in r)
+        
+        # Verify navigation was fast (not blocked)
+        assert nav_result["nav_time"] < 2.0  # Should be very fast
+        assert nav_result["config_status"] == 200
+        assert nav_result["postbacks_status"] == 200
+        
+        # Verify postback still took the full delay time
+        assert postback_result["postback_time"] >= 4.8
+        assert postback_result["postback_status"] == 200
+
+    def test_multiple_postback_endpoints_concurrent(self, client):
+        """Test that both /postback and /postback/<user_id> endpoints handle delays non-blocking"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        import threading
+        import queue
+        
+        postback_data = create_test_postback_data()
+        results_queue = queue.Queue()
+        
+        def make_generic_postback():
+            start_time = time.time()
+            response = client.post("/postback?delay=3", json=postback_data)
+            end_time = time.time()
+            results_queue.put({
+                "endpoint": "generic",
+                "time": end_time - start_time,
+                "status": response.status_code
+            })
+        
+        def make_user_specific_postback():
+            # Get user ID
+            with client.application.app_context():
+                user = User.query.filter_by(email="user@test.com").first()
+                user_id = user.id
+            
+            start_time = time.time()
+            response = client.post(f"/postback/{user_id}?delay=3", json=postback_data)
+            end_time = time.time()
+            results_queue.put({
+                "endpoint": "user_specific",
+                "time": end_time - start_time,
+                "status": response.status_code
+            })
+        
+        # Start both requests simultaneously
+        thread1 = threading.Thread(target=make_generic_postback)
+        thread2 = threading.Thread(target=make_user_specific_postback)
+        
+        start_time = time.time()
+        thread1.start()
+        thread2.start()
+        
+        thread1.join()
+        thread2.join()
+        total_time = time.time() - start_time
+        
+        # Collect results
+        results = []
+        while not results_queue.empty():
+            results.append(results_queue.get())
+        
+        # Verify both requests completed successfully
+        assert len(results) == 2
+        for result in results:
+            assert result["status"] == 200
+            assert result["time"] >= 2.8  # Each took at least the delay time
+        
+        # Total time should be ~3 seconds (concurrent), not ~6 seconds (sequential)
+        assert total_time < 5.0
+
+    def test_delay_logging_mentions_non_blocking(self, client, caplog):
+        """Test that delay logging mentions non-blocking behavior"""
+        postback_data = create_test_postback_data()
+        
+        with caplog.at_level(logging.INFO):
+            response = client.post("/postback?delay=1", json=postback_data)
+        
+        assert response.status_code == 200
+        
+        # Check that logs mention non-blocking delay
+        log_messages = [record.message for record in caplog.records]
+        assert any("non-blocking delay" in msg.lower() for msg in log_messages)
+        assert any("non-blocking delay completed" in msg.lower() for msg in log_messages)

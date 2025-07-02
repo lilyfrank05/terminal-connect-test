@@ -12,6 +12,6 @@ from app import create_app
 app = create_app()
 
 if __name__ == "__main__":
-    # This allows the app to be run directly with `python app.py`
-    # though in production it should be run with Gunicorn
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    # This allows the app to be run directly with `python wsgi.py`
+    # Enable threading to prevent blocking issues with delays
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
