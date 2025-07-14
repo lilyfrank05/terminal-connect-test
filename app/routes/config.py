@@ -1,3 +1,4 @@
+import logging
 from flask import (
     Blueprint,
     current_app,
@@ -57,6 +58,23 @@ def config(user):
                 flash(error, "danger")
                 return redirect(url_for("config.config"))
 
+        # Validate postback delay
+        postback_delay_raw = request.form.get("postback_delay", "0").strip()
+        logger = logging.getLogger(__name__)
+        logger.info(f"Processing postback_delay from form: '{postback_delay_raw}'")
+        
+        try:
+            postback_delay = int(postback_delay_raw) if postback_delay_raw else 0
+            logger.info(f"Parsed postback_delay: {postback_delay}")
+            if postback_delay < 0 or postback_delay > 600:
+                logger.warning(f"Invalid postback_delay value: {postback_delay} (must be 0-600)")
+                flash("Postback delay must be between 0 and 600 seconds (10 minutes).", "danger")
+                return redirect(url_for("config.config"))
+        except ValueError:
+            logger.error(f"Invalid postback_delay format: '{postback_delay_raw}'")
+            flash("Postback delay must be a valid number.", "danger")
+            return redirect(url_for("config.config"))
+
         # If postback URL is empty, use the default built-in endpoint
         if not postback_url:
             if "user_id" in session:
@@ -67,6 +85,13 @@ def config(user):
             else:
                 # Generic postback URL for guests
                 postback_url = url_for("postbacks.postback", _external=True)
+        
+        # Append delay query parameter if delay is configured
+        if postback_delay > 0:
+            # Add delay parameter to the postback URL
+            separator = "&" if "?" in postback_url else "?"
+            postback_url = f"{postback_url}{separator}delay={postback_delay}"
+            logger.info(f"Added delay parameter to postback URL: {postback_url}")
 
         config_data = {
             "environment": request.form.get("environment", "sandbox"),
@@ -74,6 +99,7 @@ def config(user):
             "tid": request.form.get("tid", ""),
             "api_key": request.form.get("api_key", ""),
             "postback_url": postback_url,
+            "postback_delay": postback_delay,
         }
 
         # If user is logged in, save to DB. Otherwise, save to session.
@@ -102,10 +128,12 @@ def config(user):
                 tid=config_data["tid"],
                 api_key=config_data["api_key"],
                 postback_url=config_data["postback_url"],
+                postback_delay=config_data["postback_delay"],
                 display_order=max_order + 1,
             )
             db.session.add(new_config)
             db.session.commit()
+            logger.info(f"Authenticated user config saved: id={new_config.id}, postback_delay={new_config.postback_delay}")
             flash(f"Configuration '{config_name}' saved successfully.", "success")
         else:  # Guest user
             session["ENVIRONMENT"] = config_data["environment"]
@@ -114,6 +142,8 @@ def config(user):
             session["TID"] = config_data["tid"]
             session["API_KEY"] = config_data["api_key"]
             session["POSTBACK_URL"] = config_data["postback_url"]
+            session["POSTBACK_DELAY"] = config_data["postback_delay"]
+            logger.info(f"Guest user config saved with POSTBACK_DELAY={config_data['postback_delay']} in session")
             flash("Configuration updated successfully for this session.", "success")
 
         return redirect(url_for("config.config"))
@@ -144,6 +174,7 @@ def config(user):
         tid=session.get("TID", defaults["TID"]),
         api_key=session.get("API_KEY", defaults["API_KEY"]),
         postback_url=postback_url,
+        postback_delay=session.get("POSTBACK_DELAY", 0),
         user_configs=user_configs,
     )
 
@@ -156,22 +187,41 @@ def load_config(user, config_id):
         return "Unauthorized", 403
 
     # Load config data into session
+    logger = logging.getLogger(__name__)
     session["active_config_id"] = config.id
     session["ENVIRONMENT"] = config.environment
     session["BASE_URL"] = config.base_url
     session["MID"] = config.mid
     session["TID"] = config.tid
     session["API_KEY"] = config.api_key
+    session["POSTBACK_DELAY"] = config.postback_delay
+    logger.info(f"Loaded config {config.id} into session with POSTBACK_DELAY={config.postback_delay}")
+    
+    # Handle postback URL with delay parameter
     if config.postback_url:
-        session["POSTBACK_URL"] = config.postback_url
+        postback_url = config.postback_url
     else:
         # Generate user-specific postback URL for authenticated users
         if "user_id" in session:
-            session["POSTBACK_URL"] = url_for(
+            postback_url = url_for(
                 "postbacks.postback", user_id=session["user_id"], _external=True
             )
         else:
-            session["POSTBACK_URL"] = url_for("postbacks.postback", _external=True)
+            postback_url = url_for("postbacks.postback", _external=True)
+    
+    # Append delay query parameter if delay is configured
+    if config.postback_delay > 0:
+        # Remove existing delay parameter if present
+        if "delay=" in postback_url:
+            import re
+            postback_url = re.sub(r'[?&]delay=\d+', '', postback_url)
+        
+        # Add delay parameter to the postback URL
+        separator = "&" if "?" in postback_url else "?"
+        postback_url = f"{postback_url}{separator}delay={config.postback_delay}"
+        logger.info(f"Added delay parameter to loaded postback URL: {postback_url}")
+    
+    session["POSTBACK_URL"] = postback_url
     flash(f"Loaded configuration '{config.name}'.", "info")
     return redirect(url_for("config.config"))
 
@@ -216,6 +266,17 @@ def update_config(user, config_id):
             flash(error, "danger")
             return redirect(url_for("config.config"))
 
+    # Handle postback delay validation
+    postback_delay = request.form.get(f"postback_delay_{config_id}", "0").strip()
+    try:
+        postback_delay = int(postback_delay) if postback_delay else 0
+        if postback_delay < 0 or postback_delay > 600:
+            flash("Postback delay must be between 0 and 600 seconds (10 minutes).", "danger")
+            return redirect(url_for("config.config"))
+    except ValueError:
+        flash("Postback delay must be a valid number.", "danger")
+        return redirect(url_for("config.config"))
+
     if not postback_url:
         if "user_id" in session:
             # User-specific postback URL for authenticated users
@@ -225,6 +286,19 @@ def update_config(user, config_id):
         else:
             # Generic postback URL for guests
             postback_url = url_for("postbacks.postback", _external=True)
+    
+    # Append delay query parameter if delay is configured
+    if postback_delay > 0:
+        # Remove existing delay parameter if present
+        if "delay=" in postback_url:
+            import re
+            postback_url = re.sub(r'[?&]delay=\d+', '', postback_url)
+        
+        # Add delay parameter to the postback URL
+        separator = "&" if "?" in postback_url else "?"
+        postback_url = f"{postback_url}{separator}delay={postback_delay}"
+        logger = logging.getLogger(__name__)
+        logger.info(f"Added delay parameter to updated postback URL: {postback_url}")
 
     # Update config fields
     config.name = config_name
@@ -234,6 +308,7 @@ def update_config(user, config_id):
     config.tid = request.form.get(f"tid_{config_id}")
     config.api_key = request.form.get(f"api_key_{config_id}")
     config.postback_url = postback_url
+    config.postback_delay = postback_delay
 
     db.session.commit()
 

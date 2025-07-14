@@ -1,7 +1,9 @@
 import pytest
 import json
-from app.models import User, UserPostback
+import time
+from app.models import User, UserPostback, UserConfig
 from app import db
+import logging
 
 
 # --- Helper Functions ---
@@ -506,3 +508,435 @@ class TestPostbackColumns:
         
         response = client.get("/postbacks")
         assert b"test-terminal-789" in response.data
+
+
+class TestPostbackDelay:
+    """Tests for postback delay functionality"""
+
+    def test_config_validation_valid_delay(self, client):
+        """Test that valid postback delay values are accepted"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        # Test valid delay values
+        valid_delays = [0, 1, 60, 300, 600]
+        
+        for delay in valid_delays:
+            response = client.post("/config", data={
+                "config_name": f"Test Config {delay}",
+                "environment": "sandbox",
+                "mid": "test_mid",
+                "tid": "test_tid", 
+                "api_key": "test_key",
+                "postback_delay": str(delay)
+            }, follow_redirects=True)
+            assert response.status_code == 200
+            # Check for success message
+            assert b"saved successfully" in response.data
+
+    def test_config_validation_invalid_delay_negative(self, client):
+        """Test that negative postback delay values are rejected"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox", 
+            "mid": "test_mid",
+            "tid": "test_tid",
+            "api_key": "test_key",
+            "postback_delay": "-1"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Postback delay must be between 0 and 600 seconds" in response.data
+
+    def test_config_validation_invalid_delay_too_large(self, client):
+        """Test that postback delay values over 600 are rejected"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox",
+            "mid": "test_mid", 
+            "tid": "test_tid",
+            "api_key": "test_key",
+            "postback_delay": "601"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Postback delay must be between 0 and 600 seconds" in response.data
+
+    def test_config_validation_invalid_delay_non_numeric(self, client):
+        """Test that non-numeric postback delay values are rejected"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox",
+            "mid": "test_mid",
+            "tid": "test_tid", 
+            "api_key": "test_key",
+            "postback_delay": "invalid"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Postback delay must be a valid number" in response.data
+
+    def test_url_based_delay_functionality(self, client):
+        """Test that delay is applied when specified via URL query parameter"""
+        # Test delay via URL parameter directly
+        postback_data = create_test_postback_data()
+        start_time = time.time()
+        response = client.post("/postback?delay=2", json=postback_data)
+        end_time = time.time()
+        
+        assert response.status_code == 200
+        # Allow for some tolerance in timing (should be at least 1.8 seconds)
+        assert end_time - start_time >= 1.8
+
+    def test_config_generates_url_with_delay_param(self, client):
+        """Test that configurations generate postback URLs with delay parameters"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        # Save configuration with delay
+        response = client.post("/config", data={
+            "config_name": "Test Config With Delay",
+            "environment": "sandbox", 
+            "mid": "test_mid",
+            "tid": "test_tid",
+            "api_key": "test_key",
+            "postback_delay": "3"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify config is saved with delay
+        with client.application.app_context():
+            user = User.query.filter_by(email="user@test.com").first()
+            config = UserConfig.query.filter_by(user_id=user.id).first()
+            assert config.postback_delay == 3
+        
+        # Load the config into session
+        response = client.get(f"/config/load/{config.id}", follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Check that session contains URL with delay parameter
+        with client.session_transaction() as session:
+            postback_url = session.get("POSTBACK_URL", "")
+            assert "delay=3" in postback_url
+
+    def test_no_delay_when_zero_url_param(self, client):
+        """Test that no delay is applied when URL delay parameter is 0"""
+        postback_data = create_test_postback_data()
+        start_time = time.time()
+        response = client.post("/postback?delay=0", json=postback_data)
+        end_time = time.time()
+        
+        assert response.status_code == 200
+        # Should be fast (less than 0.5 seconds for processing)
+        assert end_time - start_time < 0.5
+        
+    def test_invalid_delay_url_param(self, client):
+        """Test that invalid delay URL parameters default to 0"""
+        postback_data = create_test_postback_data()
+        
+        # Test non-numeric delay
+        start_time = time.time()
+        response = client.post("/postback?delay=invalid", json=postback_data)
+        end_time = time.time()
+        assert response.status_code == 200
+        assert end_time - start_time < 0.5
+        
+        # Test out-of-range delay (too high)
+        start_time = time.time()
+        response = client.post("/postback?delay=700", json=postback_data)
+        end_time = time.time()
+        assert response.status_code == 200
+        assert end_time - start_time < 0.5
+        
+        # Test negative delay
+        start_time = time.time()
+        response = client.post("/postback?delay=-5", json=postback_data)
+        end_time = time.time()
+        assert response.status_code == 200
+        assert end_time - start_time < 0.5
+        
+    def test_guest_user_config_with_delay_creates_url_param(self, client):
+        """Test that guest user configuration with delay adds parameter to URL"""
+        guest_login(client)
+        
+        # Set configuration with delay for guest user
+        response = client.post("/config", data={
+            "environment": "sandbox",
+            "mid": "test_mid",
+            "tid": "test_tid",
+            "api_key": "test_key", 
+            "postback_delay": "5"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Check that session contains URL with delay parameter
+        with client.session_transaction() as session:
+            postback_url = session.get("POSTBACK_URL", "")
+            assert "delay=5" in postback_url
+
+    def test_postback_delay_field_in_config_form(self, client):
+        """Test that postback delay field appears in configuration form"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        response = client.get("/config")
+        assert response.status_code == 200
+        assert b"postback_delay" in response.data
+        assert b"Postback Delay (seconds)" in response.data
+        assert b"max=\"600\"" in response.data
+
+    def test_update_existing_config_with_delay(self, client):
+        """Test updating an existing configuration's postback delay"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        # Create initial config
+        response = client.post("/config", data={
+            "config_name": "Test Config",
+            "environment": "sandbox",
+            "mid": "test_mid",
+            "tid": "test_tid", 
+            "api_key": "test_key",
+            "postback_delay": "0"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Get the config ID
+        with client.application.app_context():
+            user = User.query.filter_by(email="user@test.com").first()
+            config = UserConfig.query.filter_by(user_id=user.id).first()
+            config_id = config.id
+        
+        # Update config with delay
+        response = client.post(f"/config/update/{config_id}", data={
+            f"config_name_{config_id}": "Updated Test Config",
+            f"environment_{config_id}": "sandbox",
+            f"mid_{config_id}": "test_mid",
+            f"tid_{config_id}": "test_tid",
+            f"api_key_{config_id}": "test_key",
+            f"postback_delay_{config_id}": "3"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify delay was updated
+        with client.application.app_context():
+            updated_config = db.session.get(UserConfig, config_id)
+            assert updated_config.postback_delay == 3
+
+
+class TestNonBlockingDelay:
+    """Tests for non-blocking delay functionality using threading"""
+
+    def test_delay_preserves_timing(self, client):
+        """Test that non-blocking delay still takes the correct amount of time"""
+        postback_data = create_test_postback_data()
+        start_time = time.time()
+        response = client.post("/postback?delay=3", json=postback_data)
+        end_time = time.time()
+        
+        assert response.status_code == 200
+        # Delay should still take at least 2.8 seconds (with some tolerance)
+        assert end_time - start_time >= 2.8
+        # But not too much longer (max 4 seconds accounting for processing)
+        assert end_time - start_time <= 4.0
+
+    def test_concurrent_delayed_requests(self, client):
+        """Test that multiple delayed requests can run simultaneously"""
+        import threading
+        import queue
+        
+        postback_data = create_test_postback_data()
+        results_queue = queue.Queue()
+        
+        def make_delayed_request(delay_seconds, request_id):
+            """Make a delayed postback request and record timing"""
+            start_time = time.time()
+            response = client.post(f"/postback?delay={delay_seconds}", json={
+                **postback_data,
+                "intentId": f"concurrent-test-{request_id}"
+            })
+            end_time = time.time()
+            results_queue.put({
+                "request_id": request_id,
+                "delay_seconds": delay_seconds,
+                "actual_time": end_time - start_time,
+                "status_code": response.status_code
+            })
+        
+        # Start 3 concurrent requests with different delays
+        threads = []
+        start_time = time.time()
+        
+        for i, delay in enumerate([2, 3, 4]):
+            thread = threading.Thread(target=make_delayed_request, args=(delay, i))
+            threads.append(thread)
+            thread.start()
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+        
+        total_time = time.time() - start_time
+        
+        # Collect results
+        results = []
+        while not results_queue.empty():
+            results.append(results_queue.get())
+        
+        # Verify all requests completed successfully
+        assert len(results) == 3
+        for result in results:
+            assert result["status_code"] == 200
+            # Each request should take at least its delay time
+            assert result["actual_time"] >= result["delay_seconds"] - 0.2
+        
+        # Total time should be close to the longest delay (4 seconds), not the sum (9 seconds)
+        # This proves they ran concurrently, not sequentially
+        assert total_time < 6.0  # Should be ~4 seconds, not ~9 seconds
+
+    def test_navigation_not_blocked_during_delay(self, client):
+        """Test that page navigation works while a delayed postback is in progress"""
+        import threading
+        import queue
+        
+        postback_data = create_test_postback_data()
+        results_queue = queue.Queue()
+        
+        def make_long_delayed_request():
+            """Make a long delayed postback request"""
+            start_time = time.time()
+            response = client.post("/postback?delay=5", json=postback_data)
+            end_time = time.time()
+            results_queue.put({
+                "postback_time": end_time - start_time,
+                "postback_status": response.status_code
+            })
+        
+        def test_navigation():
+            """Test navigation requests during delay"""
+            nav_start = time.time()
+            # Test multiple navigation requests
+            config_response = client.get("/config")
+            postbacks_response = client.get("/postbacks")
+            nav_end = time.time()
+            
+            results_queue.put({
+                "nav_time": nav_end - nav_start,
+                "config_status": config_response.status_code,
+                "postbacks_status": postbacks_response.status_code
+            })
+        
+        # Start long delayed postback request
+        postback_thread = threading.Thread(target=make_long_delayed_request)
+        postback_thread.start()
+        
+        # Wait a moment to ensure postback delay has started
+        time.sleep(0.1)
+        
+        # Test navigation while postback delay is active
+        nav_thread = threading.Thread(target=test_navigation)
+        nav_thread.start()
+        
+        # Wait for both to complete
+        nav_thread.join()
+        postback_thread.join()
+        
+        # Collect results
+        results = []
+        while not results_queue.empty():
+            results.append(results_queue.get())
+        
+        # Find navigation and postback results
+        nav_result = next(r for r in results if "nav_time" in r)
+        postback_result = next(r for r in results if "postback_time" in r)
+        
+        # Verify navigation was fast (not blocked)
+        assert nav_result["nav_time"] < 2.0  # Should be very fast
+        assert nav_result["config_status"] == 200
+        assert nav_result["postbacks_status"] == 200
+        
+        # Verify postback still took the full delay time
+        assert postback_result["postback_time"] >= 4.8
+        assert postback_result["postback_status"] == 200
+
+    def test_multiple_postback_endpoints_concurrent(self, client):
+        """Test that both /postback and /postback/<user_id> endpoints handle delays non-blocking"""
+        create_test_user(client)
+        login(client, "user@test.com", "userpass")
+        
+        import threading
+        import queue
+        
+        postback_data = create_test_postback_data()
+        results_queue = queue.Queue()
+        
+        def make_generic_postback():
+            start_time = time.time()
+            response = client.post("/postback?delay=3", json=postback_data)
+            end_time = time.time()
+            results_queue.put({
+                "endpoint": "generic",
+                "time": end_time - start_time,
+                "status": response.status_code
+            })
+        
+        def make_user_specific_postback():
+            # Get user ID
+            with client.application.app_context():
+                user = User.query.filter_by(email="user@test.com").first()
+                user_id = user.id
+            
+            start_time = time.time()
+            response = client.post(f"/postback/{user_id}?delay=3", json=postback_data)
+            end_time = time.time()
+            results_queue.put({
+                "endpoint": "user_specific",
+                "time": end_time - start_time,
+                "status": response.status_code
+            })
+        
+        # Start both requests simultaneously
+        thread1 = threading.Thread(target=make_generic_postback)
+        thread2 = threading.Thread(target=make_user_specific_postback)
+        
+        start_time = time.time()
+        thread1.start()
+        thread2.start()
+        
+        thread1.join()
+        thread2.join()
+        total_time = time.time() - start_time
+        
+        # Collect results
+        results = []
+        while not results_queue.empty():
+            results.append(results_queue.get())
+        
+        # Verify both requests completed successfully
+        assert len(results) == 2
+        for result in results:
+            assert result["status"] == 200
+            assert result["time"] >= 2.8  # Each took at least the delay time
+        
+        # Total time should be ~3 seconds (concurrent), not ~6 seconds (sequential)
+        assert total_time < 5.0
+
+    def test_delay_logging_mentions_non_blocking(self, client, caplog):
+        """Test that delay logging mentions non-blocking behavior"""
+        postback_data = create_test_postback_data()
+        
+        with caplog.at_level(logging.INFO):
+            response = client.post("/postback?delay=1", json=postback_data)
+        
+        assert response.status_code == 200
+        
+        # Check that logs mention non-blocking delay
+        log_messages = [record.message for record in caplog.records]
+        assert any("non-blocking delay" in msg.lower() for msg in log_messages)
+        assert any("non-blocking delay completed" in msg.lower() for msg in log_messages)

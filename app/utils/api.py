@@ -45,6 +45,10 @@ def make_api_request(endpoint, method="POST", payload=None):
     # Add postback URL to payload if it's a payment, refund, or reversal request
     if payload and endpoint.endswith(("/payment", "/refund", "/reversal")):
         payload["postbackUrl"] = postback_url
+        # Log for debugging delay functionality
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Added postback URL to {endpoint}: {postback_url}")
 
     try:
         response = requests.request(
