@@ -178,6 +178,18 @@ def create_app(test_config=None, *args, **kwargs):
 
     init_routes(app)
 
+    # Context processor to make version available in all templates
+    @app.context_processor
+    def inject_version():
+        """Make version number available in all templates."""
+        try:
+            version_file = os.path.join(app.root_path, "..", "VERSION")
+            with open(version_file, "r") as f:
+                version = f.read().strip()
+        except (FileNotFoundError, IOError):
+            version = "unknown"
+        return {"app_version": version}
+
     @app.route("/")
     def root():
         return "It works!"

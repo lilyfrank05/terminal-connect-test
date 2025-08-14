@@ -55,6 +55,25 @@ class TestAuth:
         assert response.status_code == 200
         assert b"Login" in response.data
 
+    def test_version_in_footer(self, client):
+        """Test that version number appears in the footer of pages"""
+        import os
+        
+        # Read the actual version from the VERSION file
+        try:
+            version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "VERSION")
+            with open(version_file, "r") as f:
+                expected_version = f.read().strip()
+        except (FileNotFoundError, IOError):
+            expected_version = "unknown"
+        
+        response = client.get("/user/login")
+        assert response.status_code == 200
+        assert b"Terminal Connect Test v" in response.data
+        # Check that the actual version from file appears in the response
+        expected_footer = f"Terminal Connect Test v{expected_version}".encode()
+        assert expected_footer in response.data
+
     def test_guest_login(self, client):
         response = guest_login(client)
         assert response.status_code == 200
@@ -117,12 +136,12 @@ class TestAuth:
 
         # 3. New user logs in
         response = login(client, "registerme@test.com", "password123")
-        assert b"Account" in response.data  # On profile page
+        assert b"Configuration" in response.data  # Redirected to config page
 
     def test_login_logout(self, client):
         create_regular_user(client)
         login_res = login(client, "user@test.com", "userpass")
-        assert b"Account" in login_res.data
+        assert b"Configuration" in login_res.data
         logout_res = client.get("/user/logout", follow_redirects=True)
         assert b"You have been logged out" in logout_res.data
 
@@ -130,6 +149,16 @@ class TestAuth:
         create_regular_user(client)
         response = login(client, "user@test.com", "wrongpassword")
         assert b"Invalid credentials" in response.data
+
+    def test_login_redirects_to_config_page(self, client):
+        """Test that successful login redirects user to configuration page"""
+        create_regular_user(client)
+        response = login(client, "user@test.com", "userpass")
+        assert response.status_code == 200
+        assert b"Configuration" in response.data
+        # Verify we're actually on the config page, not profile
+        assert b"Environment" in response.data  # Config form element
+        assert b"Merchant ID" in response.data  # Config form element
 
     @patch("app.routes.user.send_email")
     def test_removed_user_can_be_invited_again(self, mock_send_email, client):
