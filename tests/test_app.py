@@ -55,6 +55,25 @@ class TestAuth:
         assert response.status_code == 200
         assert b"Login" in response.data
 
+    def test_version_in_footer(self, client):
+        """Test that version number appears in the footer of pages"""
+        import os
+        
+        # Read the actual version from the VERSION file
+        try:
+            version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "VERSION")
+            with open(version_file, "r") as f:
+                expected_version = f.read().strip()
+        except (FileNotFoundError, IOError):
+            expected_version = "unknown"
+        
+        response = client.get("/user/login")
+        assert response.status_code == 200
+        assert b"Terminal Connect Test v" in response.data
+        # Check that the actual version from file appears in the response
+        expected_footer = f"Terminal Connect Test v{expected_version}".encode()
+        assert expected_footer in response.data
+
     def test_guest_login(self, client):
         response = guest_login(client)
         assert response.status_code == 200
