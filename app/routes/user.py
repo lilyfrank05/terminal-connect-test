@@ -84,7 +84,7 @@ def create_user_blueprint(name="user"):
                 )
             session["user_id"] = user.id
             session["user_role"] = user.role
-            return redirect(url_for("user.profile_page"))
+            return redirect(url_for("config.config"))
         return render_template("login.html")
 
     @user_bp.route("/guest-login")
