@@ -117,12 +117,12 @@ class TestAuth:
 
         # 3. New user logs in
         response = login(client, "registerme@test.com", "password123")
-        assert b"Account" in response.data  # On profile page
+        assert b"Configuration" in response.data  # Redirected to config page
 
     def test_login_logout(self, client):
         create_regular_user(client)
         login_res = login(client, "user@test.com", "userpass")
-        assert b"Account" in login_res.data
+        assert b"Configuration" in login_res.data
         logout_res = client.get("/user/logout", follow_redirects=True)
         assert b"You have been logged out" in logout_res.data
 
@@ -130,6 +130,16 @@ class TestAuth:
         create_regular_user(client)
         response = login(client, "user@test.com", "wrongpassword")
         assert b"Invalid credentials" in response.data
+
+    def test_login_redirects_to_config_page(self, client):
+        """Test that successful login redirects user to configuration page"""
+        create_regular_user(client)
+        response = login(client, "user@test.com", "userpass")
+        assert response.status_code == 200
+        assert b"Configuration" in response.data
+        # Verify we're actually on the config page, not profile
+        assert b"Environment" in response.data  # Config form element
+        assert b"Merchant ID" in response.data  # Config form element
 
     @patch("app.routes.user.send_email")
     def test_removed_user_can_be_invited_again(self, mock_send_email, client):
