@@ -96,7 +96,7 @@ def create_user_config(user):
         return (
             jsonify(
                 {
-                    "message": "Configuration limit exceeded. Maximum 10 configurations allowed.",
+                    "message": f"Configuration limit exceeded. Maximum {50 if user.role == 'admin' else 10} configurations allowed.",
                     "error": "config_limit_exceeded",
                 }
             ),
