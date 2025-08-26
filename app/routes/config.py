@@ -104,10 +104,12 @@ def config(user):
 
         # If user is logged in, save to DB. Otherwise, save to session.
         if "user_id" in session:
-            # Enforce a limit of 10 configurations per user
-            if UserConfig.query.filter_by(user_id=session["user_id"]).count() >= 10:
+            # Check if user can add more configs based on their role
+            current_user = User.query.get(session["user_id"])
+            if not current_user.can_add_config():
+                max_configs = 50 if current_user.role == "admin" else 10
                 flash(
-                    "You have reached the maximum of 10 saved configurations.", "danger"
+                    f"You have reached the maximum of {max_configs} saved configurations.", "danger"
                 )
                 return redirect(url_for("config.config"))
 

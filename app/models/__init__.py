@@ -95,8 +95,9 @@ class User(db.Model):
         return len(self.postbacks)
 
     def can_add_config(self) -> bool:
-        """Check if user can add more configs (max 10)."""
-        return self.get_config_count() < 10
+        """Check if user can add more configs (admin: max 50, user: max 10)."""
+        max_configs = 50 if self.role == "admin" else 10
+        return self.get_config_count() < max_configs
 
     def can_add_postback(self) -> bool:
         """Check if user can add more postbacks (max 10,000)."""

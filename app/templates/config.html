@@ -108,16 +108,28 @@
             </div>
             <div class="card-body">
                 {% if user_configs %}
+                    <!-- Search bar -->
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" id="config-search" class="form-control" placeholder="Search by name or terminal ID...">
+                        </div>
+                    </div>
                     <ul class="list-group" id="config-list">
                         {% for conf in user_configs %}
-                        <li class="list-group-item {% if session.active_config_id == conf.id %}active{% endif %}" data-config-id="{{ conf.id }}">
+                        <li class="list-group-item {% if session.active_config_id == conf.id %}active{% endif %}" data-config-id="{{ conf.id }}" data-config-name="{{ conf.name|lower }}" data-config-tid="{{ conf.tid|lower }}">
                             <div class="d-flex justify-content-between align-items-center">
                                 {% if user_configs|length > 1 %}
                                 <div class="drag-handle me-2" style="cursor: grab;">
                                     <i class="bi bi-grip-vertical text-muted"></i>
                                 </div>
                                 {% endif %}
-                                <strong class="text-break flex-grow-1">{{ conf.name }}</strong>
+                                <div class="flex-grow-1">
+                                    <strong class="text-break">{{ conf.name }}</strong>
+                                    <div class="small text-muted">TID: {{ conf.tid }}</div>
+                                </div>
                                 <div>
                                     <a href="{{ url_for('config.load_config', config_id=conf.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Load">
                                         <i class="bi bi-arrow-down-circle"></i>
@@ -236,11 +248,11 @@ function resetToDefault() {
 }
 
 // Drag and drop functionality for config reordering
+const configList = document.getElementById('config-list');
 {% if user_configs|length > 1 %}
 let draggedElement = null;
 let draggedOver = null;
 
-const configList = document.getElementById('config-list');
 const configs = configList.querySelectorAll('li[data-config-id]');
 
 configs.forEach(config => {
@@ -325,5 +337,46 @@ function saveConfigOrder() {
     });
 }
 {% endif %}
+
+// Search functionality
+const searchInput = document.getElementById('config-search');
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        const configItems = configList.querySelectorAll('li[data-config-id]');
+        
+        configItems.forEach(item => {
+            const configName = item.getAttribute('data-config-name') || '';
+            const configTid = item.getAttribute('data-config-tid') || '';
+            
+            if (searchTerm === '' || 
+                configName.includes(searchTerm) || 
+                configTid.includes(searchTerm)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        // Show/hide empty state message
+        const visibleItems = Array.from(configItems).filter(item => item.style.display !== 'none');
+        const noResultsMessage = document.getElementById('no-search-results');
+        
+        if (visibleItems.length === 0 && searchTerm !== '') {
+            if (!noResultsMessage) {
+                const message = document.createElement('div');
+                message.id = 'no-search-results';
+                message.className = 'text-center text-muted mt-3';
+                message.innerHTML = `
+                    <i class="bi bi-search fs-1"></i>
+                    <p class="mt-2">No configurations found matching "${searchTerm}"</p>
+                `;
+                configList.parentNode.appendChild(message);
+            }
+        } else if (noResultsMessage) {
+            noResultsMessage.remove();
+        }
+    });
+}
 </script>
 {% endblock %}
