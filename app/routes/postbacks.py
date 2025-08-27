@@ -69,6 +69,30 @@ def mask_headers(headers):
     return masked
 
 
+def get_transaction_type(postback_data):
+    """Extract transaction type with fallback logic"""
+    # First try to get transactionType directly from postback_data
+    transaction_type = postback_data.get("transactionType")
+    if transaction_type:
+        return transaction_type
+    
+    # If not found, try to get it from rawReceipt
+    raw_receipt = postback_data.get("rawReceipt")
+    if raw_receipt:
+        try:
+            # Parse rawReceipt as JSON and extract transactionType
+            receipt_data = json.loads(raw_receipt)
+            transaction_type = receipt_data.get("transactionType")
+            if transaction_type:
+                return transaction_type
+        except (json.JSONDecodeError, TypeError):
+            # rawReceipt is not valid JSON, continue to default
+            pass
+    
+    # Default fallback
+    return "N/A"
+
+
 # --- Routes ---
 
 
@@ -110,7 +134,7 @@ def postback(user=None, user_id=None):
 
         new_postback = UserPostback(
             user_id=user_id,
-            transaction_type=postback_data.get("transactionType", "N/A"),
+            transaction_type=get_transaction_type(postback_data),
             transaction_id=postback_data.get("transactionId") if postback_data.get("transactionId") else None,
             intent_id=postback_data.get("intentId", "unknown_intent"),
             status="received",
