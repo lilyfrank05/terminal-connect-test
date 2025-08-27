@@ -134,7 +134,7 @@ def postback(user=None, user_id=None):
 
         new_postback = UserPostback(
             user_id=user_id,
-            transaction_type=postback_data.get("transactionType", "N/A"),
+            transaction_type=get_transaction_type(postback_data),
             transaction_id=postback_data.get("transactionId") if postback_data.get("transactionId") else None,
             intent_id=postback_data.get("intentId", "unknown_intent"),
             status="received",
