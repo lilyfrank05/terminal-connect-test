@@ -105,7 +105,7 @@ def config(user):
         # If user is logged in, save to DB. Otherwise, save to session.
         if "user_id" in session:
             # Check if user can add more configs based on their role
-            current_user = User.query.get(session["user_id"])
+            current_user = db.session.get(User, session["user_id"])
             if not current_user.can_add_config():
                 max_configs = 50 if current_user.role == "admin" else 10
                 flash(
