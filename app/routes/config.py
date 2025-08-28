@@ -24,7 +24,9 @@ bp = Blueprint("config", __name__)
 def index(user):
     # If a user is logged in but has no config in session, load their first one
     if "user_id" in session and not session.get("MID"):
-        config = UserConfig.query.filter_by(user_id=session["user_id"]).first()
+        config = db.session.execute(
+            db.select(UserConfig).filter_by(user_id=session["user_id"])
+        ).scalar_one_or_none()
         if config:
             return redirect(url_for("config.load_config", config_id=config.id))
     return redirect(url_for("config.config"))
@@ -35,7 +37,11 @@ def index(user):
 def config(user):
     user_configs = []
     if "user_id" in session:
-        user_configs = UserConfig.query.filter_by(user_id=session["user_id"]).order_by(UserConfig.display_order, UserConfig.created_at).all()
+        user_configs = db.session.execute(
+            db.select(UserConfig)
+            .filter_by(user_id=session["user_id"])
+            .order_by(UserConfig.display_order, UserConfig.created_at)
+        ).scalars().all()
 
     if request.method == "POST":
         # Validate required fields
@@ -119,7 +125,9 @@ def config(user):
                 return redirect(url_for("config.config"))
 
             # Get the next display order
-            max_order = db.session.query(db.func.max(UserConfig.display_order)).filter_by(user_id=session["user_id"]).scalar() or 0
+            max_order = db.session.execute(
+                db.select(db.func.max(UserConfig.display_order)).filter_by(user_id=session["user_id"])
+            ).scalar() or 0
             
             new_config = UserConfig(
                 user_id=session["user_id"],
@@ -337,10 +345,12 @@ def reorder_configs(user):
             return {"success": False, "error": "No configuration IDs provided"}, 400
         
         # Verify all configs belong to the user
-        user_configs = UserConfig.query.filter(
-            UserConfig.id.in_(config_ids),
-            UserConfig.user_id == session["user_id"]
-        ).all()
+        user_configs = db.session.execute(
+            db.select(UserConfig).filter(
+                UserConfig.id.in_(config_ids),
+                UserConfig.user_id == session["user_id"]
+            )
+        ).scalars().all()
         
         if len(user_configs) != len(config_ids):
             return {"success": False, "error": "Invalid configuration IDs"}, 400
