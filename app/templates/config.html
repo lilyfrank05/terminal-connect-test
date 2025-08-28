@@ -134,6 +134,9 @@
                                     <a href="{{ url_for('config.load_config', config_id=conf.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Load">
                                         <i class="bi bi-arrow-down-circle"></i>
                                     </a>
+                                    <button class="btn btn-sm btn-outline-info me-1" type="button" onclick="showShareModal({{ conf.id }}, '{{ conf.name }}')" title="Share">
+                                        <i class="bi bi-share"></i>
+                                    </button>
                                     <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ conf.id }}" aria-expanded="false" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
@@ -204,6 +207,35 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- Share Config Modal -->
+<div class="modal fade" id="shareConfigModal" tabindex="-1" aria-labelledby="shareConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareConfigModalLabel">
+                    <i class="bi bi-share me-2"></i>Share Configuration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Share configuration "<strong id="shareConfigName"></strong>" with another user:</p>
+                <div class="mb-3">
+                    <label for="shareTargetEmail" class="form-label">Target User Email</label>
+                    <input type="email" class="form-control" id="shareTargetEmail" placeholder="user@example.com" required>
+                    <div class="form-text">Enter the email address of the user you want to share this configuration with.</div>
+                </div>
+                <div id="shareErrorMessage" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" id="shareConfigBtn" onclick="shareConfig()">
+                    <i class="bi bi-share me-2"></i>Share Config
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -377,6 +409,101 @@ if (searchInput) {
             noResultsMessage.remove();
         }
     });
+}
+
+// Share config functionality
+let currentShareConfigId = null;
+
+function showShareModal(configId, configName) {
+    currentShareConfigId = configId;
+    document.getElementById('shareConfigName').textContent = configName;
+    document.getElementById('shareTargetEmail').value = '';
+    
+    // Hide any previous error messages
+    const errorDiv = document.getElementById('shareErrorMessage');
+    errorDiv.classList.add('d-none');
+    errorDiv.textContent = '';
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('shareConfigModal'));
+    modal.show();
+}
+
+function shareConfig() {
+    const targetEmail = document.getElementById('shareTargetEmail').value.trim();
+    const errorDiv = document.getElementById('shareErrorMessage');
+    const shareBtn = document.getElementById('shareConfigBtn');
+    
+    // Clear previous errors
+    errorDiv.classList.add('d-none');
+    errorDiv.textContent = '';
+    
+    if (!targetEmail) {
+        showShareError('Please enter a target email address.');
+        return;
+    }
+    
+    // Disable button during request
+    shareBtn.disabled = true;
+    shareBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Sharing...';
+    
+    // Make API call
+    fetch(`/config/share/${currentShareConfigId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: targetEmail })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal and show success message
+            const modal = bootstrap.Modal.getInstance(document.getElementById('shareConfigModal'));
+            modal.hide();
+            
+            // Flash success message (create a temporary alert)
+            showSuccessMessage(data.message);
+        } else {
+            showShareError(data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error sharing config:', error);
+        showShareError('An error occurred while sharing the configuration. Please try again.');
+    })
+    .finally(() => {
+        // Re-enable button
+        shareBtn.disabled = false;
+        shareBtn.innerHTML = '<i class="bi bi-share me-2"></i>Share Config';
+    });
+}
+
+function showShareError(message) {
+    const errorDiv = document.getElementById('shareErrorMessage');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
+
+function showSuccessMessage(message) {
+    // Create a temporary success alert at the top of the page
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <i class="bi bi-check-circle-fill me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Insert at the top of the main content
+    const mainContent = document.querySelector('.row');
+    mainContent.parentNode.insertBefore(alertDiv, mainContent);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv && alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
 }
 </script>
 {% endblock %}
