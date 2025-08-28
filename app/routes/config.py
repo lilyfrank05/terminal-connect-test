@@ -3,6 +3,7 @@ from flask import (
     Blueprint,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -24,7 +25,9 @@ bp = Blueprint("config", __name__)
 def index(user):
     # If a user is logged in but has no config in session, load their first one
     if "user_id" in session and not session.get("MID"):
-        config = UserConfig.query.filter_by(user_id=session["user_id"]).first()
+        config = db.session.execute(
+            db.select(UserConfig).filter_by(user_id=session["user_id"])
+        ).scalar_one_or_none()
         if config:
             return redirect(url_for("config.load_config", config_id=config.id))
     return redirect(url_for("config.config"))
@@ -35,7 +38,11 @@ def index(user):
 def config(user):
     user_configs = []
     if "user_id" in session:
-        user_configs = UserConfig.query.filter_by(user_id=session["user_id"]).order_by(UserConfig.display_order, UserConfig.created_at).all()
+        user_configs = db.session.execute(
+            db.select(UserConfig)
+            .filter_by(user_id=session["user_id"])
+            .order_by(UserConfig.display_order, UserConfig.created_at)
+        ).scalars().all()
 
     if request.method == "POST":
         # Validate required fields
@@ -119,7 +126,9 @@ def config(user):
                 return redirect(url_for("config.config"))
 
             # Get the next display order
-            max_order = db.session.query(db.func.max(UserConfig.display_order)).filter_by(user_id=session["user_id"]).scalar() or 0
+            max_order = db.session.execute(
+                db.select(db.func.max(UserConfig.display_order)).filter_by(user_id=session["user_id"])
+            ).scalar() or 0
             
             new_config = UserConfig(
                 user_id=session["user_id"],
@@ -337,10 +346,12 @@ def reorder_configs(user):
             return {"success": False, "error": "No configuration IDs provided"}, 400
         
         # Verify all configs belong to the user
-        user_configs = UserConfig.query.filter(
-            UserConfig.id.in_(config_ids),
-            UserConfig.user_id == session["user_id"]
-        ).all()
+        user_configs = db.session.execute(
+            db.select(UserConfig).filter(
+                UserConfig.id.in_(config_ids),
+                UserConfig.user_id == session["user_id"]
+            )
+        ).scalars().all()
         
         if len(user_configs) != len(config_ids):
             return {"success": False, "error": "Invalid configuration IDs"}, 400
@@ -356,3 +367,101 @@ def reorder_configs(user):
     except Exception as e:
         db.session.rollback()
         return {"success": False, "error": str(e)}, 500
+
+
+@bp.route("/config/share/<int:config_id>", methods=["POST"])
+@optional_jwt_user
+def share_config(user, config_id):
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    
+    # Get the config to share
+    config = db.get_or_404(UserConfig, config_id)
+    if config.user_id != session["user_id"]:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    
+    target_email = request.json.get("email", "").strip().lower()
+    if not target_email:
+        return jsonify({"success": False, "error": "Email is required"}), 400
+    
+    # Check if target user exists and is active
+    target_user = db.session.execute(
+        db.select(User).filter_by(email=target_email)
+    ).scalar_one_or_none()
+    if not target_user:
+        return jsonify({"success": False, "error": "User with this email does not exist"}), 400
+    
+    if not target_user.is_active:
+        return jsonify({"success": False, "error": "Target user account is not activated"}), 400
+    
+    # Don't allow sharing to self
+    if target_user.id == session["user_id"]:
+        return jsonify({"success": False, "error": "Cannot share config with yourself"}), 400
+    
+    # Check if target user already has this config (same base_url, mid, tid)
+    existing_config = db.session.execute(
+        db.select(UserConfig).filter_by(
+            user_id=target_user.id,
+            base_url=config.base_url,
+            mid=config.mid,
+            tid=config.tid
+        )
+    ).scalar_one_or_none()
+    
+    if existing_config:
+        return jsonify({"success": False, "error": "User already has this configuration"}), 400
+    
+    # Generate unique name for the shared config
+    base_name = config.name
+    target_name = base_name
+    
+    # Check if target user already has a config with this name
+    name_conflict = db.session.execute(
+        db.select(UserConfig).filter_by(
+            user_id=target_user.id,
+            name=target_name
+        )
+    ).scalar_one_or_none()
+    
+    if name_conflict:
+        target_name = f"{base_name} copy"
+        
+        # If "copy" name also exists, keep adding numbers
+        counter = 2
+        while db.session.execute(
+            db.select(UserConfig).filter_by(user_id=target_user.id, name=target_name)
+        ).scalar_one_or_none():
+            target_name = f"{base_name} copy {counter}"
+            counter += 1
+    
+    try:
+        # Get the next display order for the target user
+        max_order = db.session.execute(
+            db.select(db.func.max(UserConfig.display_order)).filter_by(user_id=target_user.id)
+        ).scalar() or 0
+        
+        # Create new config for target user
+        shared_config = UserConfig(
+            user_id=target_user.id,
+            name=target_name,
+            environment=config.environment,
+            base_url=config.base_url,
+            mid=config.mid,
+            tid=config.tid,
+            api_key=config.api_key,
+            postback_url=config.postback_url,
+            postback_delay=config.postback_delay,
+            display_order=max_order + 1,
+        )
+        
+        db.session.add(shared_config)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Configuration '{config.name}' shared successfully with {target_email}"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to share configuration: {str(e)}"}), 500
