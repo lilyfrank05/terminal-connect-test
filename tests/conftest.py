@@ -98,3 +98,33 @@ def mock_process_response():
         "transactionId": "txn_123456",
         "merchantReference": "test-ref",
     }
+
+
+@pytest.fixture
+def test_users(app):
+    """Create test users for sharing functionality."""
+    from app.models import User, db
+    
+    with app.app_context():
+        # Create user1
+        user1 = User(email="user1@example.com", role="user")
+        user1.set_password("password1")
+        db.session.add(user1)
+        
+        # Create user2
+        user2 = User(email="user2@example.com", role="user")
+        user2.set_password("password2")
+        db.session.add(user2)
+        
+        # Create user3 (inactive)
+        user3 = User(email="user3@example.com", role="user", is_active=False)
+        user3.set_password("password3")
+        db.session.add(user3)
+        
+        db.session.commit()
+        
+        return {
+            'user1': user1,
+            'user2': user2,
+            'user3': user3
+        }
