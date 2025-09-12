@@ -100,6 +100,8 @@ def create_app(test_config=None, *args, **kwargs):
         # App Configuration
         DEFAULT_CONFIG=DEFAULT_CONFIG,
         POSTBACKS_FILE="/tmp/postbacks.json",
+        # Outbound request timeout (in seconds) for external APIs
+        API_REQUEST_TIMEOUT=int(os.getenv("API_REQUEST_TIMEOUT", "60")),
         # Email Configuration (if using email for invites)
         MAIL_SERVER=os.getenv("MAIL_SERVER"),
         MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
