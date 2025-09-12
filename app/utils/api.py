@@ -19,6 +19,20 @@ VERIFY_PATH = (
 )
 
 
+def _get_timeout_seconds():
+    """Return configured API request timeout in seconds (default 60)."""
+    try:
+        timeout_val = int(current_app.config.get("API_REQUEST_TIMEOUT", 60))
+        # enforce sane bounds: 1s - 300s
+        if timeout_val < 1:
+            return 60
+        if timeout_val > 300:
+            return 300
+        return timeout_val
+    except Exception:
+        return 60
+
+
 def make_api_request(endpoint, method="POST", payload=None):
     """Helper function to make API requests with proper headers and error handling"""
     if not validate_config():
@@ -51,18 +65,19 @@ def make_api_request(endpoint, method="POST", payload=None):
         logger.info(f"Added postback URL to {endpoint}: {postback_url}")
 
     try:
+        timeout_seconds = _get_timeout_seconds()
         response = requests.request(
             method=method,
             url=url,
             headers=headers,
             json=payload,
-            timeout=60,  # 60 seconds timeout
+            timeout=timeout_seconds,
             verify=VERIFY_PATH,
         )
         response.raise_for_status()
         return response.json(), None
     except requests.exceptions.Timeout:
-        return None, "Request timed out after 60 seconds"
+        return None, f"Request timed out after {timeout_seconds} seconds"
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         if hasattr(e.response, "json"):

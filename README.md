@@ -106,6 +106,7 @@ API_KEY=your-api-key
 
 # Optional
 DEBUG=false  # Set to true for verbose Docker logging
+API_REQUEST_TIMEOUT=60  # Timeout (seconds) for external API calls
 ```
 
 ## Setup Options

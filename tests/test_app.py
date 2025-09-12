@@ -471,6 +471,96 @@ class TestTransactions:
             assert b"Successfully processed Intent ID:" in response.data
 
 
+class TestTimeouts:
+    """Timeout behavior for sale, refund, and reversal requests"""
+
+    def test_sale_intent_timeout(self, client, mock_config):
+        # Configure session
+        guest_login(client)
+        client.post("/config", data=mock_config)
+
+        import requests
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/payment",
+                exc=requests.exceptions.Timeout,
+            )
+            response = client.post(
+                "/sale",
+                data={"amount": "10.00", "merchant_reference": "timeout-sale"},
+                follow_redirects=True,
+            )
+            assert response.status_code == 200
+            assert b"Error creating payment intent" in response.data
+            assert b"Request timed out" in response.data
+
+    def test_unlinked_refund_intent_timeout(self, client, mock_config):
+        guest_login(client)
+        client.post("/config", data=mock_config)
+
+        import requests
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/refund",
+                exc=requests.exceptions.Timeout,
+            )
+            response = client.post(
+                "/unlinked-refund",
+                data={"amount": "10.00", "merchant_reference": "timeout-refund"},
+                follow_redirects=True,
+            )
+            assert response.status_code == 200
+            assert b"Error creating refund intent" in response.data
+            assert b"Request timed out" in response.data
+
+    def test_reversal_intent_timeout(self, client, mock_config):
+        guest_login(client)
+        client.post("/config", data=mock_config)
+
+        import requests
+        with requests_mock.Mocker() as m:
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/reversal",
+                exc=requests.exceptions.Timeout,
+            )
+            response = client.post(
+                "/reversal",
+                data={
+                    "merchant_reference": "timeout-reversal",
+                    "parent_intent_id": "a1b2c3d4-e5f6-4890-a234-567890abcdef",
+                },
+                follow_redirects=True,
+            )
+            assert response.status_code == 200
+            assert b"Error creating reversal intent" in response.data
+            assert b"Request timed out" in response.data
+
+    def test_sale_process_timeout(self, client, mock_config, mock_intent_response):
+        guest_login(client)
+        client.post("/config", data=mock_config)
+
+        import requests
+        with requests_mock.Mocker() as m:
+            # Intent creation succeeds
+            m.post(
+                "https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/payment",
+                json=mock_intent_response,
+            )
+            # Processing times out
+            m.post(
+                f"https://api-terminal-gateway.tillvision.show/devices/merchant/test-mid/intent/{mock_intent_response['intentId']}/process",
+                exc=requests.exceptions.Timeout,
+            )
+            response = client.post(
+                "/sale",
+                data={"amount": "10.00", "merchant_reference": "timeout-process"},
+                follow_redirects=True,
+            )
+            assert response.status_code == 200
+            assert b"Process failed for Intent ID" in response.data
+            assert b"Request timed out" in response.data
+
+
 class TestRefunds:
     """Tests for Unlinked and Linked Refunds"""
 
