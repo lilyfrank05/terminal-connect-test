@@ -26,7 +26,10 @@ def index(user):
     # If a user is logged in but has no config in session, load their first one
     if "user_id" in session and not session.get("MID"):
         config = db.session.execute(
-            db.select(UserConfig).filter_by(user_id=session["user_id"])
+            db.select(UserConfig)
+            .filter_by(user_id=session["user_id"])
+            .order_by(UserConfig.display_order, UserConfig.created_at)
+            .limit(1)
         ).scalar_one_or_none()
         if config:
             return redirect(url_for("config.load_config", config_id=config.id))
