@@ -177,3 +177,9 @@ cython_debug/
 
 # Data folder
 data/
+
+# WU Check API keys (never commit real keys)
+config/wu_keys.json
+
+# Claude Code metadata
+**/CLAUDE.md

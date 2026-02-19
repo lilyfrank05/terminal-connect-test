@@ -85,6 +85,13 @@
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
+                    {% if wu_check_enabled and not logged_in %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'wu_check.wu_check' %}active{% endif %}" href="{{ url_for('wu_check.wu_check') }}">
+                            <i class="bi bi-search me-1"></i> WU Check
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'postbacks.list_postbacks' %}active{% endif %}" href="{{ url_for('postbacks.list_postbacks') }}">
                             <i class="bi bi-bell me-1"></i> Postbacks

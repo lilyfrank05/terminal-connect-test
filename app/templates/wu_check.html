@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}WU Check{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-search me-2"></i>WU Check</h4>
+            </div>
+            <div class="card-body">
+                {% if not keys_available %}
+                <div class="alert alert-danger mb-0">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    WU keys configuration file not found. Please contact an administrator.
+                </div>
+                {% else %}
+                <form method="POST" action="{{ url_for('wu_check.wu_check') }}">
+                    <div class="mb-3">
+                        <label for="key_name" class="form-label">
+                            <i class="bi bi-key me-1"></i> Key
+                        </label>
+                        <select class="form-select" id="key_name" name="key_name" required>
+                            {% for name in key_names %}
+                            <option value="{{ name }}" {% if name == selected_key %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="mid" class="form-label">
+                            <i class="bi bi-building me-1"></i> Merchant ID (MID)
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="mid"
+                            name="mid"
+                            value="{{ mid_value }}"
+                            placeholder="Up to 8 digits"
+                            maxlength="8"
+                            pattern="[0-9]{1,8}"
+                            inputmode="numeric"
+                            required
+                        >
+                        <div class="form-text">Numeric only, maximum 8 digits.</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-2"></i>Check Terminals
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="card mt-3 border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>Error</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ error }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if result %}
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-terminal me-2"></i>Response</h5>
+                <span class="badge {% if result.status_code >= 200 and result.status_code < 300 %}bg-success{% elif result.status_code >= 400 %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                    HTTP {{ result.status_code }}
+                </span>
+            </div>
+            <div class="card-body">
+                <pre class="mb-0"><code>{{ result.body }}</code></pre>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -102,6 +102,8 @@ def create_app(test_config=None, *args, **kwargs):
         POSTBACKS_FILE="/tmp/postbacks.json",
         # Outbound request timeout (in seconds) for external APIs
         API_REQUEST_TIMEOUT=int(os.getenv("API_REQUEST_TIMEOUT", "60")),
+        # WU Check feature flag
+        ENABLE_WU_CHECK=os.getenv("ENABLE_WU_CHECK", "false").lower() in ["true", "1", "yes"],
         # Email Configuration (if using email for invites)
         MAIL_SERVER=os.getenv("MAIL_SERVER"),
         MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
@@ -180,17 +182,20 @@ def create_app(test_config=None, *args, **kwargs):
 
     init_routes(app)
 
-    # Context processor to make version available in all templates
+    # Context processor to make version and feature flags available in all templates
     @app.context_processor
     def inject_version():
-        """Make version number available in all templates."""
+        """Make version number and feature flags available in all templates."""
         try:
             version_file = os.path.join(app.root_path, "..", "VERSION")
             with open(version_file, "r") as f:
                 version = f.read().strip()
         except (FileNotFoundError, IOError):
             version = "unknown"
-        return {"app_version": version}
+        return {
+            "app_version": version,
+            "wu_check_enabled": app.config.get("ENABLE_WU_CHECK", False),
+        }
 
     @app.route("/")
     def root():
