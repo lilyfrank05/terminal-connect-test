@@ -18,10 +18,12 @@ services:
       - GUNICORN_THREADS=${GUNICORN_THREADS:-8}
       - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-60}
       - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-1000}
+      - ENABLE_WU_CHECK=${ENABLE_WU_CHECK:-false}
     ports:
       - "5001:5000"
     volumes:
       - ./data:/tmp
+      - ./config/wu_keys.json:/app/config/wu_keys.json:ro
     depends_on:
       db:
         condition: service_healthy
