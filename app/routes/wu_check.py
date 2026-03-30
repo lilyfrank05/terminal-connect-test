@@ -15,9 +15,6 @@ from ..utils.api import VERIFY_PATH, _get_timeout_seconds
 
 bp = Blueprint("wu_check", __name__)
 
-WU_API_BASE_SANDBOX = "https://api-terminal-gateway.tillvision.show/devices"
-WU_API_BASE_PRODUCTION = "https://api-terminal-gateway.tillpayments.com/devices"
-
 
 def _load_wu_keys():
     """Load WU API keys from config/wu_keys.json. Returns dict or None on error."""
@@ -65,7 +62,7 @@ def wu_check(user):
             error = "Invalid key selection."
         else:
             api_key = keys[selected_key]
-            base = WU_API_BASE_SANDBOX if selected_key == "sandbox" else WU_API_BASE_PRODUCTION
+            base = current_app.config["WU_API_BASE_URL"].rstrip("/")
             url = f"{base}/merchant/{mid_value}/terminals"
             try:
                 timeout = _get_timeout_seconds()
