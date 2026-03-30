@@ -104,6 +104,7 @@ def create_app(test_config=None, *args, **kwargs):
         API_REQUEST_TIMEOUT=int(os.getenv("API_REQUEST_TIMEOUT", "60")),
         # WU Check feature flag
         ENABLE_WU_CHECK=os.getenv("ENABLE_WU_CHECK", "false").lower() in ["true", "1", "yes"],
+        WU_API_BASE_URL=os.getenv("WU_API_BASE_URL", "https://api-terminal-gateway.tillpayments.com/devices"),
         # Email Configuration (if using email for invites)
         MAIL_SERVER=os.getenv("MAIL_SERVER"),
         MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
