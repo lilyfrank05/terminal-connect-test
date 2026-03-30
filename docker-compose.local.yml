@@ -19,11 +19,12 @@ services:
       - GUNICORN_THREADS=${GUNICORN_THREADS:-4}
       - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
       - GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-0}
+      - ENABLE_WU_CHECK=${ENABLE_WU_CHECK:-false}
     ports:
       - "5001:5000"
     volumes:
       - ./data:/tmp
-      - .:/app # Mount source code for development
+      - .:/app # Mount source code for development (includes config/wu_keys.json if present)
     depends_on:
       db:
         condition: service_healthy
