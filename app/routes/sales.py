@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from ..utils.api import make_api_request, process_intent
@@ -28,7 +30,7 @@ def sale():
             flash(error_message, "danger")
             return redirect(url_for("sales.sale"))
 
-        amount = float(amount_str)
+        amount = Decimal(amount_str)
         merchant_reference = request.form.get("merchant_reference")
         if not merchant_reference:
             flash("Merchant reference is required", "danger")
