@@ -32,21 +32,37 @@ def validate_amount(amount_str):
         return False, "Invalid amount format"
 
 
+def ensure_config_session():
+    """Load configuration defaults into session if not already set.
+
+    Call this before validate_config() in route handlers that access
+    session['MID'] directly (instead of session.get('MID', defaults)).
+    """
+    required_configs = ["MID", "TID", "API_KEY", "BASE_URL"]
+    defaults = current_app.config["DEFAULT_CONFIG"]
+    for config in required_configs:
+        if not session.get(config):
+            value = defaults.get(config, "")
+            if value:
+                session[config] = value
+
+
 def validate_config():
-    """Validate that all required configuration values are set"""
+    """Validate that all required configuration values are set.
+
+    Does not modify session. Use ensure_config_session() first if you need
+    defaults loaded into session.
+    """
     required_configs = ["MID", "TID", "API_KEY", "BASE_URL"]
 
-    # Check session first, then fall back to defaults
     defaults = current_app.config["DEFAULT_CONFIG"]
     missing = []
 
     for config in required_configs:
         value = session.get(config)
-        if not value:  # If not in session, try to get from defaults
+        if not value:
             value = defaults.get(config, "")
-            if value:  # If found in defaults, store in session
-                session[config] = value
-            else:
+            if not value:
                 missing.append(config)
 
     if missing:

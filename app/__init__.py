@@ -30,10 +30,9 @@ DEFAULT_CONFIG = {
 scheduler = None
 
 
-def cleanup_guest_postbacks():
+def cleanup_guest_postbacks(postbacks_file="/tmp/postbacks.json"):
     """Clean up guest postbacks older than 24 hours."""
     try:
-        postbacks_file = "/tmp/postbacks.json"
         if os.path.exists(postbacks_file):
             with open(postbacks_file, "r") as f:
                 postbacks = json.load(f)
@@ -199,14 +198,15 @@ def create_app(test_config=None, *args, **kwargs):
     if not app.config.get("TESTING", False) and scheduler is None:
         scheduler = BackgroundScheduler()
         # Run cleanup daily at 2 AM
+        from functools import partial
+        postbacks_path = app.config.get("POSTBACKS_FILE", "/tmp/postbacks.json")
         scheduler.add_job(
-            func=cleanup_guest_postbacks,
+            func=partial(cleanup_guest_postbacks, postbacks_file=postbacks_path),
             trigger=CronTrigger(hour=2, minute=0),
             id="cleanup_guest_postbacks",
             name="Daily cleanup of guest postbacks",
             replace_existing=True,
         )
-        from functools import partial
         session_dir = app.config.get("SESSION_FILE_DIR", "/tmp/flask-sessions")
         scheduler.add_job(
             func=partial(cleanup_stale_sessions, session_dir=session_dir),

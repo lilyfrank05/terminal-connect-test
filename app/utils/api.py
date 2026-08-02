@@ -1,9 +1,10 @@
 import requests
-from flask import current_app, flash, session, url_for
+from flask import current_app, flash, session
 import os
 import certifi
 
 from .validation import validate_config
+from .helpers import get_postback_url
 
 ENVIRONMENT_URLS = {
     "production": "https://api-terminal-gateway.tillpayments.com/devices",
@@ -42,15 +43,7 @@ def make_api_request(endpoint, method="POST", payload=None):
     defaults = current_app.config["DEFAULT_CONFIG"]
     api_key = session.get("API_KEY", defaults["API_KEY"])
     base_url = session.get("BASE_URL", defaults["BASE_URL"])
-    postback_url = session.get("POSTBACK_URL")
-    if not postback_url:
-        # Generate default postback URL based on user authentication
-        if session.get("user_id"):
-            postback_url = url_for(
-                "postbacks.postback", user_id=session["user_id"], _external=True
-            )
-        else:
-            postback_url = url_for("postbacks.postback", _external=True)
+    postback_url = get_postback_url()
 
     headers = {"Content-Type": "application/json", "x-api-key": api_key}
 

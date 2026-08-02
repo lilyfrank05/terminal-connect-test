@@ -4,32 +4,18 @@ from decimal import Decimal
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from ..utils.api import make_api_request, process_intent
-from ..utils.helpers import generate_merchant_reference, is_charge_anywhere_tid
-from ..utils.validation import validate_amount, validate_config, is_valid_uuid
+from ..utils.helpers import generate_merchant_reference, is_charge_anywhere_tid, get_postback_url
+from ..utils.validation import validate_amount, validate_config, is_valid_uuid, ensure_config_session
 from .user import login_required
 
 bp = Blueprint("refunds", __name__)
-
-
-def get_postback_url():
-    """Get postback URL from session or generate appropriate one"""
-    postback_url = session.get("POSTBACK_URL")
-    if not postback_url:
-        # Check if user is authenticated for user-specific postback
-        if session.get("user_id"):
-            postback_url = url_for(
-                "postbacks.postback", user_id=session["user_id"], _external=True
-            )
-        else:
-            postback_url = url_for("postbacks.postback", _external=True)
-    return postback_url
-
 
 
 @bp.route("/unlinked-refund", methods=["GET", "POST"])
 @login_required
 def unlinked_refund():
     if request.method == "POST":
+        ensure_config_session()
         if not validate_config():
             return redirect(url_for("config.config"))
 
@@ -87,6 +73,7 @@ def linked_refund():
     show_pinpad_options = is_charge_anywhere_tid(current_tid)
     
     if request.method == "POST":
+        ensure_config_session()
         if not validate_config():
             return redirect(url_for("config.config"))
 
