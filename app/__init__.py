@@ -70,6 +70,32 @@ def cleanup_guest_postbacks():
         print(f"Error during guest postbacks cleanup: {e}")
 
 
+def cleanup_stale_sessions(session_dir="/tmp/flask-sessions"):
+    """Clean up stale server-side session files older than 48 hours."""
+    try:
+        if not os.path.isdir(session_dir):
+            return
+
+        cutoff = datetime.now() - timedelta(hours=48)
+        removed = 0
+        for fname in os.listdir(session_dir):
+            fpath = os.path.join(session_dir, fname)
+            if not os.path.isfile(fpath):
+                continue
+            try:
+                mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
+                if mtime < cutoff:
+                    os.remove(fpath)
+                    removed += 1
+            except (OSError, ValueError):
+                continue
+
+        if removed:
+            print(f"Stale sessions cleanup completed. Removed {removed} session files.")
+    except Exception as e:
+        print(f"Error during stale sessions cleanup: {e}")
+
+
 def create_app(test_config=None, *args, **kwargs):
     global scheduler
 
@@ -90,7 +116,7 @@ def create_app(test_config=None, *args, **kwargs):
     # JWT Configuration
     app.config.from_mapping(
         SECRET_KEY=os.getenv("SECRET_KEY", "dev-secret-key-change-in-production"),
-        JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", "jwt-secret-change-in-production"),
+        JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY"),
         JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=24),
         JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=30),
         JWT_ALGORITHM="HS256",
@@ -116,6 +142,12 @@ def create_app(test_config=None, *args, **kwargs):
 
     app.config["PREFERRED_URL_SCHEME"] = "https"
 
+    # Server-side session configuration (keeps credentials off the wire)
+    app.config["SESSION_TYPE"] = "filesystem"
+    app.config["SESSION_FILE_DIR"] = "/tmp/flask-sessions"
+    app.config["SESSION_PERMANENT"] = False
+    app.config["SESSION_USE_SIGNER"] = True
+
     # Use ProxyFix to respect X-Forwarded-Proto and X-Forwarded-Host
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -130,6 +162,11 @@ def create_app(test_config=None, *args, **kwargs):
     db.init_app(app)
     migrate = Migrate(app, db)
     jwt = JWTManager(app)
+
+    # Initialize server-side session storage
+    from flask_session import Session
+    sess = Session()
+    sess.init_app(app)
 
     # JWT error handlers
     @jwt.expired_token_loader
@@ -169,8 +206,17 @@ def create_app(test_config=None, *args, **kwargs):
             name="Daily cleanup of guest postbacks",
             replace_existing=True,
         )
+        from functools import partial
+        session_dir = app.config.get("SESSION_FILE_DIR", "/tmp/flask-sessions")
+        scheduler.add_job(
+            func=partial(cleanup_stale_sessions, session_dir=session_dir),
+            trigger=CronTrigger(hour=2, minute=30),
+            id="cleanup_stale_sessions",
+            name="Daily cleanup of stale sessions",
+            replace_existing=True,
+        )
         scheduler.start()
-        print("Scheduler started for daily guest postbacks cleanup")
+        print("Scheduler started for daily cleanup jobs (guest postbacks + stale sessions)")
 
     # Register blueprints
     from .routes import init_app as init_routes

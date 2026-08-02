@@ -14,4 +14,5 @@ Flask-JWT-Extended==4.6.0
 marshmallow==3.20.1
 bcrypt==4.1.2
 APScheduler==3.10.4
+Flask-Session==0.8.0
 psycopg2-binary==2.9.9
