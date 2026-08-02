@@ -22,6 +22,7 @@ def app():
             "WTF_CSRF_ENABLED": False,  # Disable CSRF for testing forms
             "POSTBACKS_FILE": path,  # For old tests if any
             "GUEST_POSTBACKS_FILE": guest_path,  # For new guest tests
+            "SESSION_FILE_DIR": tempfile.mkdtemp(),  # Isolated session storage for tests
             "DEFAULT_CONFIG": {
                 "ENVIRONMENT": "sandbox",
                 "BASE_URL": "https://api-terminal-gateway.tillvision.show/devices",
