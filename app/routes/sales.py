@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 
 from ..utils.api import make_api_request, process_intent
 from ..utils.helpers import generate_merchant_reference
-from ..utils.validation import validate_amount, validate_config
+from ..utils.validation import validate_amount, validate_config, ensure_config_session
 from .user import login_required
 
 bp = Blueprint("sales", __name__)
@@ -20,6 +20,7 @@ def sale():
         return redirect(url_for("config.config"))
 
     if request.method == "POST":
+        ensure_config_session()
         if not validate_config():
             return redirect(url_for("config.config"))
 
