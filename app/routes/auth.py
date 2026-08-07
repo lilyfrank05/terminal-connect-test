@@ -6,37 +6,12 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
 )
-from marshmallow import Schema, fields, ValidationError, validate
+from marshmallow import ValidationError
 from ..models import db, User, Invite
 from ..utils.auth import jwt_required_with_user
+from ..schemas import LoginSchema, RegisterSchema, PasswordResetRequestSchema, PasswordResetSchema, ChangePasswordSchema
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
-
-
-# Marshmallow Schemas for validation
-class LoginSchema(Schema):
-    email = fields.Email(required=True, validate=validate.Length(max=120))
-    password = fields.Str(required=True, validate=validate.Length(min=6, max=255))
-
-
-class RegisterSchema(Schema):
-    email = fields.Email(required=True, validate=validate.Length(max=120))
-    password = fields.Str(required=True, validate=validate.Length(min=6, max=255))
-    token = fields.Str(required=True, validate=validate.Length(min=1))
-
-
-class PasswordResetRequestSchema(Schema):
-    email = fields.Email(required=True, validate=validate.Length(max=120))
-
-
-class PasswordResetSchema(Schema):
-    token = fields.Str(required=True, validate=validate.Length(min=1))
-    password = fields.Str(required=True, validate=validate.Length(min=6, max=255))
-
-
-class ChangePasswordSchema(Schema):
-    current_password = fields.Str(required=True, validate=validate.Length(min=1))
-    new_password = fields.Str(required=True, validate=validate.Length(min=6, max=255))
 
 
 @auth_bp.route("/login", methods=["POST"])

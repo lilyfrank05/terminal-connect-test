@@ -2,7 +2,7 @@
 """
 Flask Application Entry Point
 
-This file serves as a compatibility layer and entry point for the Flask application.
+This file serves as the WSGI entry point for Gunicorn.
 The main application is defined in the app package.
 """
 
@@ -10,8 +10,3 @@ from app import create_app
 
 # Create the Flask application instance
 app = create_app()
-
-if __name__ == "__main__":
-    # This allows the app to be run directly with `python wsgi.py`
-    # Enable threading to prevent blocking issues with delays
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

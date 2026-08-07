@@ -7,10 +7,17 @@ from sqlalchemy import String, Text, Integer, DateTime, Boolean, ForeignKey, fun
 from typing import List, Optional
 
 
-# Helper function to get timezone-naive UTC datetime (avoids deprecation warning)
+# Helper function to get timezone-aware UTC datetime
 def utc_now() -> datetime:
-    """Get current UTC time as timezone-naive datetime."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    """Get current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
+
+
+def ensure_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    """Convert a naive datetime to timezone-aware (UTC) if it isn't already."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 class Base(DeclarativeBase):
@@ -33,17 +40,17 @@ class User(db.Model):
     )  # 'admin' or 'user'
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utc_now, nullable=False
+        DateTime(timezone=True), default=utc_now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utc_now, onupdate=utc_now, nullable=False
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
-    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Password reset functionality
     reset_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reset_token_expires: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
+        DateTime(timezone=True), nullable=True
     )
     
     # Postback column preferences (JSON string)
@@ -79,7 +86,7 @@ class User(db.Model):
         """Check if reset token is valid and not expired."""
         if not self.reset_token or not self.reset_token_expires:
             return False
-        return self.reset_token == token and utc_now() < self.reset_token_expires
+        return self.reset_token == token and utc_now() < ensure_aware(self.reset_token_expires)
 
     def clear_reset_token(self) -> None:
         """Clear the reset token after use."""
@@ -129,10 +136,10 @@ class Invite(db.Model):
     )  # 'pending', 'accepted', 'expired', 'cancelled'
     invited_by: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utc_now, nullable=False
+        DateTime(timezone=True), default=utc_now, nullable=False
     )
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def __init__(
         self, email: str, role: str, invited_by: int, expires_in_hours: int = 72
@@ -145,7 +152,7 @@ class Invite(db.Model):
 
     def is_expired(self) -> bool:
         """Check if invite is expired."""
-        return utc_now() > self.expires_at
+        return utc_now() > ensure_aware(self.expires_at)
 
     def is_valid(self) -> bool:
         """Check if invite is valid (pending and not expired)."""
@@ -199,10 +206,10 @@ class UserConfig(db.Model):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utc_now, nullable=False
+        DateTime(timezone=True), default=utc_now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utc_now, onupdate=utc_now, nullable=False
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relationship

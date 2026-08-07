@@ -1,29 +1,11 @@
 from flask import Blueprint, request, jsonify, current_app
-from marshmallow import Schema, fields, ValidationError, validate
+from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from ..models import db, User, Invite, UserConfig, UserPostback
 from ..utils.auth import admin_required
+from ..schemas import InviteUserSchema, UpdateUserSchema, UpdateInviteSchema
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
-
-
-# Marshmallow Schemas for validation
-class InviteUserSchema(Schema):
-    email = fields.Email(required=True, validate=validate.Length(max=120))
-    role = fields.Str(required=True, validate=validate.OneOf(["admin", "user"]))
-
-
-class UpdateUserSchema(Schema):
-    email = fields.Email(validate=validate.Length(max=120))
-    role = fields.Str(validate=validate.OneOf(["admin", "user"]))
-    is_active = fields.Bool()
-
-
-class UpdateInviteSchema(Schema):
-    role = fields.Str(validate=validate.OneOf(["admin", "user"]))
-    expires_in_hours = fields.Int(
-        validate=validate.Range(min=1, max=720)
-    )  # 1 hour to 30 days
 
 
 # User Management Routes
