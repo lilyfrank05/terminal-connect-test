@@ -1,35 +1,13 @@
 from flask import Blueprint, request, jsonify, current_app
-from marshmallow import Schema, fields, ValidationError, validate
+from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from ..models import db, UserConfig
 from ..utils.auth import jwt_required_with_user, optional_jwt_user
 from ..utils.api import ENVIRONMENT_URLS
 from ..utils.validation import validate_url
+from ..schemas import CreateConfigSchema, UpdateConfigSchema
 
 user_config_bp = Blueprint("user_config", __name__, url_prefix="/api/user/configs")
-
-
-# Marshmallow Schemas for validation
-class CreateConfigSchema(Schema):
-    name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
-    environment = fields.Str(
-        required=True, validate=validate.OneOf(["sandbox", "production"])
-    )
-    mid = fields.Str(required=True, validate=validate.Length(min=1, max=100))
-    tid = fields.Str(required=True, validate=validate.Length(min=1, max=100))
-    api_key = fields.Str(required=True, validate=validate.Length(min=1))
-    postback_url = fields.Str(validate=validate.Length(max=255))
-    is_default = fields.Bool(load_default=False)
-
-
-class UpdateConfigSchema(Schema):
-    name = fields.Str(validate=validate.Length(min=1, max=100))
-    environment = fields.Str(validate=validate.OneOf(["sandbox", "production"]))
-    mid = fields.Str(validate=validate.Length(min=1, max=100))
-    tid = fields.Str(validate=validate.Length(min=1, max=100))
-    api_key = fields.Str(validate=validate.Length(min=1))
-    postback_url = fields.Str(validate=validate.Length(max=255))
-    is_default = fields.Bool()
 
 
 @user_config_bp.route("", methods=["GET"])
