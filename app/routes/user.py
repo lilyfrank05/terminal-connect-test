@@ -13,7 +13,7 @@ from ..models import db, User, Invite, UserConfig, UserPostback
 from app.utils.email import send_email
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta, UTC
-import uuid
+import secrets
 import os
 from functools import wraps
 
@@ -146,7 +146,7 @@ def create_user_blueprint(name="user"):
             user = User.query.filter_by(email=email).first()
             if user:
                 # Generate a random token
-                token = str(uuid.uuid4())
+                token = secrets.token_urlsafe(32)
                 user.reset_token = token
                 user.reset_token_expires = datetime.now(UTC) + timedelta(hours=1)
                 db.session.commit()

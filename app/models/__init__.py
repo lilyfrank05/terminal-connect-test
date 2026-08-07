@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import bcrypt
-import uuid
+import secrets
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, Text, Integer, DateTime, Boolean, ForeignKey, func
@@ -71,7 +71,7 @@ class User(db.Model):
 
     def generate_reset_token(self) -> str:
         """Generate a password reset token."""
-        self.reset_token = str(uuid.uuid4())
+        self.reset_token = secrets.token_urlsafe(32)
         self.reset_token_expires = utc_now() + timedelta(hours=24)
         return self.reset_token
 
@@ -140,7 +140,7 @@ class Invite(db.Model):
         self.email = email
         self.role = role
         self.invited_by = invited_by
-        self.token = str(uuid.uuid4())
+        self.token = secrets.token_urlsafe(32)
         self.expires_at = utc_now() + timedelta(hours=expires_in_hours)
 
     def is_expired(self) -> bool:

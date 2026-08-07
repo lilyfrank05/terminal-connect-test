@@ -48,9 +48,9 @@ main() {
     # Step 1: Wait for database to be ready
     wait_for_database
 
-    # Step 2: Run database initialization using Python script
+    # Step 2: Run database initialization using Flask CLI (no subprocess chain)
     echo "Running database initialization..."
-    if python /app/init_db.py; then
+    if flask init-db; then
         echo "✓ Database initialization completed successfully"
     else
         echo "✗ Database initialization failed"
