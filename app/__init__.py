@@ -230,8 +230,8 @@ def create_app(test_config=None, *args, **kwargs):
     init_routes(app)
 
     # Register CLI commands
-    from app.cli import cli as cli_group
-    app.cli.add_command(cli_group)
+    from app.cli import init_db
+    app.cli.add_command(init_db)
 
     # Context processor to make version and feature flags available in all templates
     @app.context_processor
