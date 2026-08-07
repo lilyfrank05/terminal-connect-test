@@ -2,7 +2,7 @@
 CLI commands for Terminal Connect Test application.
 
 Provides a one-shot `flask init-db` command that replaces the old
-subprocess-chained init_db.py with direct Alembic/Flask-Migrate API calls.
+subprocess-chained init_db.py with direct Flask-Migrate API calls.
 """
 
 import os
@@ -10,18 +10,11 @@ import sys
 from pathlib import Path
 
 import click
-from alembic import command as alembic_command
-from flask import current_app
+import flask_migrate
 from flask.cli import with_appcontext
 
 
-@click.group()
-def cli():
-    """Terminal Connect Test management commands."""
-    pass
-
-
-@cli.command("init-db")
+@click.command("init-db")
 @with_appcontext
 def init_db():
     """Initialize the database: create/upgrade schema and seed admin user.
@@ -71,19 +64,16 @@ def _init_migrations() -> bool:
     """Initialize the migrations directory and create an initial migration if needed."""
     print("=== Initializing Flask-Migrate ===")
 
-    base_dir = Path(current_app.root_path).parent
-    versions_dir = base_dir / "migrations" / "versions"
+    base_dir = Path("migrations")
+    versions_dir = base_dir / "versions"
 
-    migrations_exist = versions_dir.parent.exists()
+    migrations_exist = base_dir.exists()
     files_exist = versions_dir.exists() and any(versions_dir.iterdir())
-
-    migrate = current_app.extensions["migrate"]
-    cfg = migrate.cfg
 
     if not migrations_exist:
         print("Creating migrations directory...")
         try:
-            alembic_command.init(cfg, str(base_dir / "migrations"))
+            flask_migrate.init()
             print("Migrations directory created")
         except Exception as e:
             print(f"Failed to create migrations directory: {e}")
@@ -92,7 +82,7 @@ def _init_migrations() -> bool:
     if not files_exist:
         print("Creating initial migration...")
         try:
-            alembic_command.revision(cfg, message="Initial migration", autogenerate=True)
+            flask_migrate.migrate(message="Initial migration")
             print("Initial migration created")
         except Exception as e:
             print(f"Failed to create initial migration: {e}")
@@ -105,19 +95,16 @@ def _apply_migrations() -> bool:
     """Apply pending database migrations."""
     print("=== Applying Database Migrations ===")
 
-    migrate = current_app.extensions["migrate"]
-    cfg = migrate.cfg
-
     # Show current migration status
     print("Checking current migration status...")
     try:
-        alembic_command.current(cfg)
+        flask_migrate.current()
     except Exception:
         pass  # non-fatal; current may fail on fresh DB
 
     # Attempt upgrade
     try:
-        alembic_command.upgrade(cfg, "head")
+        flask_migrate.upgrade()
         print("Migrations applied successfully")
         return True
     except Exception as e:
@@ -128,7 +115,7 @@ def _apply_migrations() -> bool:
             from app import db
 
             db.create_all()
-            alembic_command.stamp(cfg, "head")
+            flask_migrate.stamp()
             print("Tables created and stamped as head")
             return True
         except Exception as e2:
